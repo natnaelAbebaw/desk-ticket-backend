@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from enum import StrEnum
 
-from sqlalchemy import JSON, DateTime, ForeignKey, String, Text, Uuid
+from sqlalchemy import JSON, DateTime, ForeignKey, Index, String, Text, Uuid
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -53,10 +53,13 @@ class TicketEventType(StrEnum):
 
 class Ticket(Base):
     __tablename__ = "tickets"
+    __table_args__ = (
+        Index("ix_tickets_workspace_created_at", "workspace_id", "created_at"),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     workspace_id: Mapped[uuid.UUID] = mapped_column(
-        Uuid, ForeignKey("workspaces.id", ondelete="CASCADE"), index=True
+        Uuid, ForeignKey("workspaces.id", ondelete="CASCADE")
     )
     created_by: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("users.id", ondelete="RESTRICT"))
     assigned_to: Mapped[uuid.UUID | None] = mapped_column(

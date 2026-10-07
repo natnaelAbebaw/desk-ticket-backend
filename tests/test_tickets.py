@@ -3,6 +3,7 @@ from httpx import AsyncClient
 from pydantic import ValidationError
 
 from app.core.config import Settings, get_settings
+from app.models.ticket import Ticket
 
 
 async def _user(client: AsyncClient, email: str, name: str) -> str:
@@ -23,6 +24,13 @@ async def _workspace(client: AsyncClient, owner_id: str, slug: str = "acme") -> 
     body = response.json()
     assert body["slug"] == slug
     return body["id"]
+
+
+def test_ticket_workspace_created_index() -> None:
+    indexes = {
+        index.name: [column.name for column in index.columns] for index in Ticket.__table__.indexes
+    }
+    assert indexes["ix_tickets_workspace_created_at"] == ["workspace_id", "created_at"]
 
 
 async def test_ticket_crud(client: AsyncClient) -> None:
