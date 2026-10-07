@@ -14,6 +14,7 @@ class Settings(BaseSettings):
     debug: bool = False
     api_v1_prefix: str = "/api/v1"
     database_url: str = "sqlite+aiosqlite:///./desk_ticket.db"
+    redis_url: str = "redis://localhost:6379/0"
     secret_key: str = "change-me"
     api_key: str = ""
     cors_origins: list[str] = Field(default_factory=lambda: ["http://localhost:3000"])
