@@ -16,6 +16,7 @@ from app.core.config import Settings, get_settings
 from app.core.errors import AppError
 from app.core.logging import configure_logging, request_id_ctx
 from app.core.middleware import RequestContextMiddleware
+from app.core.redis import close_redis, init_redis
 from app.db.session import engine
 
 logger = logging.getLogger(__name__)
@@ -30,7 +31,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         logger.info("starting %s (%s)", settings.app_name, settings.environment)
+        await init_redis(get_settings().redis_url)
         yield
+        await close_redis()
         await engine.dispose()
 
     app = FastAPI(

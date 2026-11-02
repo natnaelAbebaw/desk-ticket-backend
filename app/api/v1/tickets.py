@@ -3,7 +3,13 @@ import uuid
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import require_api_key
+from app.api.deps import rate_limit_default, rate_limit_writes, require_api_key
+from app.core.cache import (
+    TICKET_LIST_TTL_SECONDS,
+    get_text,
+    set_text,
+    ticket_list_version,
+)
 from app.db.session import get_db
 from app.models.ticket import TicketCategory, TicketPriority, TicketStatus
 from app.schemas.common import Page
@@ -17,10 +23,15 @@ from app.schemas.ticket import (
 )
 from app.services import tickets as ticket_service
 
-router = APIRouter(dependencies=[Depends(require_api_key)])
+router = APIRouter(dependencies=[Depends(require_api_key), Depends(rate_limit_default)])
 
 
-@router.post("", response_model=TicketRead, status_code=201)
+@router.post(
+    "",
+    response_model=TicketRead,
+    status_code=201,
+    dependencies=[Depends(rate_limit_writes)],
+)
 async def create_ticket(
     workspace_id: uuid.UUID,
     payload: TicketCreate,
@@ -41,6 +52,14 @@ async def list_tickets(
     offset: int = Query(default=0, ge=0),
     session: AsyncSession = Depends(get_db),
 ) -> Page[TicketRead]:
+    version = await ticket_list_version(workspace_id)
+    cache_key = (
+        f"tickets:{workspace_id}:{version}:{status}:{priority}:{category}:"
+        f"{assigned_to}:{limit}:{offset}"
+    )
+    cached = await get_text(cache_key)
+    if cached is not None:
+        return Page[TicketRead].model_validate_json(cached)
     items, total = await ticket_service.list_tickets(
         session,
         workspace_id,
@@ -51,12 +70,14 @@ async def list_tickets(
         limit=limit,
         offset=offset,
     )
-    return Page(
+    page = Page(
         items=[TicketRead.model_validate(item) for item in items],
         total=total,
         limit=limit,
         offset=offset,
     )
+    await set_text(cache_key, page.model_dump_json(), TICKET_LIST_TTL_SECONDS)
+    return page
 
 
 @router.get("/{ticket_id}", response_model=TicketRead)
@@ -80,7 +101,12 @@ async def update_ticket(
     return TicketRead.model_validate(ticket)
 
 
-@router.post("/{ticket_id}/messages", response_model=TicketMessageRead, status_code=201)
+@router.post(
+    "/{ticket_id}/messages",
+    response_model=TicketMessageRead,
+    status_code=201,
+    dependencies=[Depends(rate_limit_writes)],
+)
 async def add_message(
     workspace_id: uuid.UUID,
     ticket_id: uuid.UUID,

@@ -3,6 +3,7 @@ import uuid
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.cache import bump_ticket_list_version
 from app.core.errors import AppError
 from app.models.ticket import (
     Ticket,
@@ -86,6 +87,7 @@ async def create_ticket(
     _add_event(session, ticket, actor_id=payload.created_by, event_type=TicketEventType.created)
     await session.commit()
     await session.refresh(ticket)
+    await bump_ticket_list_version(workspace_id)
     return ticket
 
 
@@ -177,6 +179,7 @@ async def update_ticket(
     ticket.updated_at = utcnow()
     await session.commit()
     await session.refresh(ticket)
+    await bump_ticket_list_version(workspace_id)
     return ticket
 
 
@@ -208,6 +211,7 @@ async def add_message(
     ticket.updated_at = utcnow()
     await session.commit()
     await session.refresh(message)
+    await bump_ticket_list_version(workspace_id)
     return message
 
 

@@ -8,7 +8,7 @@ Create Date: 2026-10-07
 
 from alembic import op
 
-revision: str = "0003_ticket_workspace_created_index"
+revision: str = "0003_ticket_workspace_created"
 down_revision: str | None = "0002_workspace_tickets"
 branch_labels: str | None = None
 depends_on: str | None = None

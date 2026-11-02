@@ -6,6 +6,7 @@ from sqlalchemy import event
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from app.core.config import get_settings
+from app.core.redis import close_redis
 from app.db.base import Base
 from app.db.session import get_db
 from app.main import app
@@ -14,7 +15,9 @@ from app.main import app
 @pytest.fixture
 async def client(monkeypatch: pytest.MonkeyPatch) -> AsyncIterator[AsyncClient]:
     monkeypatch.setenv("API_KEY", "")
+    monkeypatch.setenv("REDIS_URL", "")
     get_settings.cache_clear()
+    await close_redis()
     engine = create_async_engine("sqlite+aiosqlite://")
 
     @event.listens_for(engine.sync_engine, "connect")
@@ -41,4 +44,5 @@ async def client(monkeypatch: pytest.MonkeyPatch) -> AsyncIterator[AsyncClient]:
         yield http
     app.dependency_overrides.clear()
     await engine.dispose()
+    await close_redis()
     get_settings.cache_clear()
