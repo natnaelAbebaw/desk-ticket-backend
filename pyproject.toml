@@ -17,6 +17,7 @@ dependencies = [
     "asyncpg>=0.30",
     "alembic>=1.14",
     "redis>=5",
+    "pyjwt>=2.9",
 ]
 
 [project.optional-dependencies]
@@ -42,3 +43,6 @@ target-version = "py312"
 select = ["E", "F", "I", "UP", "B"]
 # FastAPI uses Depends() and Query() in argument defaults.
 ignore = ["B008"]
+
+[tool.ruff.lint.isort]
+known-local-folder = ["helpers"]

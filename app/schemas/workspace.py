@@ -9,7 +9,6 @@ from app.models.workspace import WorkspaceRole
 class WorkspaceCreate(BaseModel):
     name: str = Field(min_length=1, max_length=200)
     slug: str = Field(min_length=1, max_length=80, pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
-    owner_id: uuid.UUID
 
 
 class WorkspaceRead(BaseModel):

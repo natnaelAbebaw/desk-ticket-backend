@@ -1,14 +1,20 @@
 import hashlib
-import hmac
 import logging
+import uuid
+from collections.abc import Awaitable, Callable
 from typing import Annotated
 
-from fastapi import Header, Request
+from fastapi import Depends, Request
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from redis.exceptions import RedisError
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.config import get_settings
 from app.core.errors import AppError
 from app.core.redis import get_redis
+from app.core.security import decode_access_token, unauthorized
+from app.db.session import get_db
+from app.models.user import User
+from app.models.workspace import WorkspaceMember, WorkspaceRole
 
 logger = logging.getLogger(__name__)
 
@@ -16,18 +22,49 @@ API_LIMIT_PER_MINUTE = 60
 WRITE_LIMIT_PER_MINUTE = 10
 _WINDOW_SECONDS = 60
 
+_bearer = HTTPBearer(auto_error=False, description="Access token from POST /api/v1/auth/token")
 
-async def require_api_key(
-    authorization: Annotated[str | None, Header()] = None,
-) -> None:
-    api_key = get_settings().api_key
-    if not api_key:
-        return
-    provided = ""
-    if authorization and authorization.lower().startswith("bearer "):
-        provided = authorization[7:].strip()
-    if not hmac.compare_digest(provided, api_key):
-        raise AppError("unauthorized", "Invalid API key", status_code=401)
+
+async def get_current_user(
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(_bearer)],
+    session: Annotated[AsyncSession, Depends(get_db)],
+) -> User:
+    if credentials is None:
+        raise unauthorized("Missing bearer token")
+    user_id = decode_access_token(credentials.credentials)
+    user = await session.get(User, user_id)
+    if user is None:
+        raise unauthorized()
+    return user
+
+
+CurrentUser = Annotated[User, Depends(get_current_user)]
+
+
+async def get_membership(
+    workspace_id: uuid.UUID,
+    user: CurrentUser,
+    session: Annotated[AsyncSession, Depends(get_db)],
+) -> WorkspaceMember:
+    member = await session.get(WorkspaceMember, (workspace_id, user.id))
+    if member is None:
+        # Same answer as a missing workspace, so outsiders cannot probe which ids exist.
+        raise AppError("not_found", "Workspace not found", status_code=404)
+    return member
+
+
+Membership = Annotated[WorkspaceMember, Depends(get_membership)]
+
+
+def require_role(*roles: WorkspaceRole) -> Callable[..., Awaitable[WorkspaceMember]]:
+    allowed = {role.value for role in roles}
+
+    async def dependency(member: Membership) -> WorkspaceMember:
+        if member.role not in allowed:
+            raise AppError("forbidden", "Your workspace role cannot do this", status_code=403)
+        return member
+
+    return dependency
 
 
 def _identity(request: Request) -> str:

@@ -9,10 +9,9 @@ from app.models.workspace import Workspace, WorkspaceMember, WorkspaceRole
 from app.schemas.workspace import MemberCreate, WorkspaceCreate
 
 
-async def create_workspace(session: AsyncSession, payload: WorkspaceCreate) -> Workspace:
-    owner = await session.get(User, payload.owner_id)
-    if owner is None:
-        raise AppError("not_found", "User not found", status_code=404)
+async def create_workspace(
+    session: AsyncSession, payload: WorkspaceCreate, *, owner_id: uuid.UUID
+) -> Workspace:
     slug = payload.slug.strip().lower()
     existing = await session.scalar(select(Workspace).where(Workspace.slug == slug))
     if existing is not None:
@@ -23,7 +22,7 @@ async def create_workspace(session: AsyncSession, payload: WorkspaceCreate) -> W
     session.add(
         WorkspaceMember(
             workspace_id=workspace.id,
-            user_id=owner.id,
+            user_id=owner_id,
             role=WorkspaceRole.owner.value,
         )
     )
@@ -39,10 +38,23 @@ async def get_workspace(session: AsyncSession, workspace_id: uuid.UUID) -> Works
     return workspace
 
 
+_PRIVILEGED_ROLES = {WorkspaceRole.owner.value, WorkspaceRole.admin.value}
+
+
 async def add_member(
-    session: AsyncSession, workspace_id: uuid.UUID, payload: MemberCreate
+    session: AsyncSession,
+    workspace_id: uuid.UUID,
+    payload: MemberCreate,
+    *,
+    actor_role: str,
 ) -> WorkspaceMember:
     await get_workspace(session, workspace_id)
+    if payload.role.value in _PRIVILEGED_ROLES and actor_role != WorkspaceRole.owner.value:
+        raise AppError(
+            "forbidden",
+            "Only an owner can add owners or admins",
+            status_code=403,
+        )
     user = await session.get(User, payload.user_id)
     if user is None:
         raise AppError("not_found", "User not found", status_code=404)
@@ -94,3 +106,23 @@ async def require_member(
     if member is None:
         raise AppError("not_a_member", "User is not a member of this workspace", status_code=403)
     return member
+
+
+async def list_user_workspaces(
+    session: AsyncSession,
+    user_id: uuid.UUID,
+    *,
+    limit: int,
+    offset: int,
+) -> tuple[list[Workspace], int]:
+    filters = WorkspaceMember.user_id == user_id
+    total = await session.scalar(select(func.count()).select_from(WorkspaceMember).where(filters))
+    result = await session.scalars(
+        select(Workspace)
+        .join(WorkspaceMember, WorkspaceMember.workspace_id == Workspace.id)
+        .where(filters)
+        .order_by(Workspace.created_at.asc())
+        .limit(limit)
+        .offset(offset)
+    )
+    return list(result.all()), int(total or 0)

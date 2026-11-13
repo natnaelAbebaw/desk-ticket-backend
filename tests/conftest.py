@@ -14,7 +14,7 @@ from app.main import app
 
 @pytest.fixture
 async def client(monkeypatch: pytest.MonkeyPatch) -> AsyncIterator[AsyncClient]:
-    monkeypatch.setenv("API_KEY", "")
+    monkeypatch.setenv("SECRET_KEY", "test-secret-key-that-is-at-least-32-chars")
     monkeypatch.setenv("REDIS_URL", "")
     get_settings.cache_clear()
     await close_redis()
