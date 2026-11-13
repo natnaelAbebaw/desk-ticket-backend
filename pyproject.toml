@@ -13,7 +13,6 @@ dependencies = [
     "uvicorn[standard]>=0.32",
     "pydantic-settings>=2.6",
     "sqlalchemy[asyncio]>=2.0.36",
-    "aiosqlite>=0.20",
     "asyncpg>=0.30",
     "alembic>=1.14",
     "redis>=5",
@@ -33,6 +32,9 @@ packages = ["app"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+# One event loop for the whole run, so the shared test engine stays on one loop.
+asyncio_default_fixture_loop_scope = "session"
+asyncio_default_test_loop_scope = "session"
 testpaths = ["tests"]
 
 [tool.ruff]
@@ -43,6 +45,10 @@ target-version = "py312"
 select = ["E", "F", "I", "UP", "B"]
 # FastAPI uses Depends() and Query() in argument defaults.
 ignore = ["B008"]
+
+[tool.ruff.lint.per-file-ignores]
+# Sets DATABASE_URL before importing the app.
+"tests/conftest.py" = ["E402"]
 
 [tool.ruff.lint.isort]
 known-local-folder = ["helpers"]

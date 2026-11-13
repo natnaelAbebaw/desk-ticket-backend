@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     environment: Literal["local", "staging", "production"] = "local"
     debug: bool = False
     api_v1_prefix: str = "/api/v1"
-    database_url: str = "sqlite+aiosqlite:///./desk_ticket.db"
+    database_url: str = "postgresql+asyncpg://desk:desk@localhost:5432/desk"
     redis_url: str = "redis://localhost:6379/0"
     secret_key: str = "change-me"
     access_token_ttl_minutes: int = Field(default=60, ge=1, le=1440)

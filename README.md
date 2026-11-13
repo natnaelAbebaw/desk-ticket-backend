@@ -13,8 +13,7 @@ HTTP API for a multi-workspace help desk. Users belong to workspaces, and each w
 | PyJWT | Signed access tokens (HS256) |
 | SQLAlchemy 2 (async) | Database models and queries |
 | Alembic | Schema migrations |
-| PostgreSQL 16 (`asyncpg`) | Database in Docker |
-| SQLite (`aiosqlite`) | Default local database |
+| PostgreSQL 16 with pgvector (`asyncpg`) | Database, locally and in tests |
 | Redis 7 | Read cache, ticket-list invalidation, rate limits, readiness |
 | Hatchling | Package build |
 | pytest, pytest-asyncio, httpx | Tests |
@@ -65,7 +64,7 @@ desk-ticket-backend/
 ├── tests/                   # API tests, including a fake Redis
 ├── docker/entrypoint.sh     # Migrate, then start Uvicorn
 ├── Dockerfile
-├── docker-compose.yml       # API, Postgres 16, Redis 7
+├── docker-compose.yml       # API, Postgres 16 + pgvector, Redis 7
 ├── Makefile
 ├── pyproject.toml
 └── alembic.ini
@@ -111,6 +110,7 @@ python -m venv .venv
 source .venv/bin/activate
 make install
 cp .env.example .env
+make db        # Postgres and Redis in Docker
 make migrate
 make dev
 ```
@@ -119,7 +119,7 @@ make dev
 - Readiness: `GET /ready`
 - Docs: `http://127.0.0.1:8000/docs`
 
-`make lint` runs Ruff. `make test` runs pytest against an in-memory SQLite database with Redis disabled.
+`make lint` runs Ruff. `make test` runs pytest against Postgres with Redis disabled, so run `make db` first. Each run drops and recreates the database named in `TEST_DATABASE_URL` (default `desk_test` on the Docker Postgres), builds it with the Alembic migrations, and empties all tables before every test. The name must end in `_test`. A test fails if the models and migrations drift apart.
 
 ## Docker
 

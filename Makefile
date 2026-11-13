@@ -1,7 +1,10 @@
-.PHONY: install dev test lint migrate
+.PHONY: install db dev test lint migrate
 
 install:
 	python -m pip install -e ".[dev]"
+
+db:
+	docker compose up -d db redis
 
 dev:
 	uvicorn app.main:app --reload
