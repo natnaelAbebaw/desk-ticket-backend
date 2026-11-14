@@ -45,7 +45,7 @@ desk-ticket-backend/
 │   ├── api/
 │   │   ├── deps.py          # Current user, workspace membership, roles, rate limits
 │   │   ├── router.py        # Mounts /api/v1 routers
-│   │   └── v1/              # health, auth, users, workspaces, tickets
+│   │   └── v1/              # health, auth, users, workspaces, tickets, knowledge
 │   ├── core/
 │   │   ├── config.py        # Settings from the environment
 │   │   ├── logging.py       # Text or JSON logs, request id
@@ -57,7 +57,7 @@ desk-ticket-backend/
 │   ├── db/
 │   │   ├── base.py          # SQLAlchemy Base
 │   │   └── session.py       # Async engine and get_db
-│   ├── models/              # User, Workspace, Ticket, messages, events
+│   ├── models/              # User, Workspace, Ticket, messages, events, knowledge
 │   ├── schemas/             # Pydantic request and response models
 │   └── services/            # Database operations and password hashing
 ├── alembic/                 # Migration scripts
@@ -96,10 +96,36 @@ Health is mounted at the root. Everything else is under `/api/v1`.
 | `POST` | `.../tickets/{ticket_id}/messages` | Add a message |
 | `GET` | `.../tickets/{ticket_id}/messages` | List messages |
 | `GET` | `.../tickets/{ticket_id}/events` | List change events |
+| `POST` | `.../tickets/{ticket_id}/knowledge` | Propose a Q&A from a resolved ticket |
+| `POST` | `/api/v1/workspaces/{workspace_id}/knowledge` | Add a Markdown document |
+| `GET` | `/api/v1/workspaces/{workspace_id}/knowledge` | List knowledge (filter by `status`, `kind`) |
+| `GET` | `.../knowledge/{source_id}` | Read a knowledge source |
+| `PATCH` | `.../knowledge/{source_id}` | Edit title, question, or body |
+| `POST` | `.../knowledge/{source_id}/approve` | Approve (owner or admin) |
+| `POST` | `.../knowledge/{source_id}/reject` | Reject with a note (owner or admin) |
+| `POST` | `.../knowledge/{source_id}/archive` | Archive (owner or admin) |
 
 Workspace roles are `owner`, `admin`, `agent`, and `member`. Ticket status is `open`, `pending`, `resolved`, or `closed`. Priority is `low`, `medium`, `high`, or `urgent`. Messages are `reply`, `internal_note`, or `system`.
 
 Writes, including signup and login, are limited to 10 requests per minute per caller. Other API routes are limited to 60. User and workspace reads are cached for 60 seconds. Ticket lists are cached for 30 seconds and drop when a ticket in that workspace is created or updated.
+
+## Knowledge base
+
+Each workspace keeps its own knowledge: Markdown documents and question-and-answer pairs written from resolved tickets. Later milestones chunk, embed, and retrieve it. Only `approved` sources will ever be retrieved.
+
+| Who | Can do |
+|---|---|
+| Owner, admin | Add documents (published approved), approve, reject, archive, edit anything not archived |
+| Agent | Submit documents and ticket answers for review, edit their own pending or rejected drafts |
+| Member | Nothing. Knowledge, drafts, and review notes are internal |
+
+Rules:
+
+- Ticket answers always wait for review, even from owners, since they are written from a real customer conversation. Remove names, emails, and account details before submitting.
+- Only `resolved` or `closed` tickets can be proposed, and a ticket has at most one pending or approved entry.
+- Content that is already pending or approved in the workspace is rejected as a duplicate (whitespace and title are ignored). Partial unique indexes back this up in the database.
+- Editing a rejected draft sends it back to review. An owner or admin editing approved text keeps it approved and becomes its reviewer. Every content change bumps `version`.
+- Archive instead of delete, so past answers that cited a source stay traceable.
 
 ## Local
 
