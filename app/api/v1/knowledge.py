@@ -11,13 +11,17 @@ import uuid
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import rate_limit_default, rate_limit_writes, require_role
 from app.db.session import get_db
+from app.ingestion import jobs as ingestion_jobs
+from app.models.ingestion import KnowledgeChunk
 from app.models.knowledge import KnowledgeKind, KnowledgeStatus
 from app.models.workspace import WorkspaceMember, WorkspaceRole
 from app.schemas.common import Page
+from app.schemas.ingestion import ChunkRead, IngestionJobRead
 from app.schemas.knowledge import (
     DocumentCreate,
     KnowledgeRead,
@@ -116,6 +120,48 @@ async def update_knowledge(
         session, editor.workspace_id, source_id, payload, actor=editor
     )
     return KnowledgeRead.model_validate(source)
+
+
+@router.get("/{source_id}/chunks", response_model=Page[ChunkRead])
+async def list_chunks(
+    source_id: uuid.UUID,
+    editor: KnowledgeEditor,
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+    session: AsyncSession = Depends(get_db),
+) -> Page[ChunkRead]:
+    """The chunks the worker built from this source, in order. Empty until the source is
+    approved and the worker has run."""
+    # get_source returns 404 for a source in another workspace, before any chunk query.
+    source = await knowledge_service.get_source(session, editor.workspace_id, source_id)
+    filters = (KnowledgeChunk.source_id == source.id,)
+    total = await session.scalar(select(func.count()).select_from(KnowledgeChunk).where(*filters))
+    rows = await session.scalars(
+        select(KnowledgeChunk)
+        .where(*filters)
+        .order_by(KnowledgeChunk.position)
+        .limit(limit)
+        .offset(offset)
+    )
+    return Page(
+        items=[ChunkRead.model_validate(row) for row in rows],
+        total=int(total or 0),
+        limit=limit,
+        offset=offset,
+    )
+
+
+@router.get("/{source_id}/ingestion", response_model=IngestionJobRead | None)
+async def latest_ingestion(
+    source_id: uuid.UUID,
+    editor: KnowledgeEditor,
+    session: AsyncSession = Depends(get_db),
+) -> IngestionJobRead | None:
+    """The newest ingestion job for this source, or null if it was never queued (for
+    example, a draft that is still pending review)."""
+    source = await knowledge_service.get_source(session, editor.workspace_id, source_id)
+    job = await ingestion_jobs.latest_job(session, source.id)
+    return IngestionJobRead.model_validate(job) if job else None
 
 
 @router.post("/{source_id}/approve", response_model=KnowledgeRead)

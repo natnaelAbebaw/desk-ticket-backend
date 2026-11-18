@@ -18,7 +18,7 @@ HTTP API for a multi-workspace help desk. Users belong to workspaces, and each w
 | Hatchling | Package build |
 | pytest, pytest-asyncio, httpx | Tests |
 | Ruff | Lint and format checks |
-| Docker Compose | API, Postgres, and Redis together |
+| Docker Compose | API, ingestion worker, Postgres, and Redis together |
 
 ## Authentication and tenant isolation
 
@@ -54,6 +54,7 @@ desk-ticket-backend/
 │   │   ├── security.py      # Access token create and verify
 │   │   ├── redis.py         # Redis client lifecycle
 │   │   └── cache.py         # Cached reads and ticket-list version
+│   ├── ingestion/           # Chunker, Postgres job queue, worker process
 │   ├── db/
 │   │   ├── base.py          # SQLAlchemy Base
 │   │   └── session.py       # Async engine and get_db
@@ -64,7 +65,7 @@ desk-ticket-backend/
 ├── tests/                   # API tests, including a fake Redis
 ├── docker/entrypoint.sh     # Migrate, then start Uvicorn
 ├── Dockerfile
-├── docker-compose.yml       # API, Postgres 16 + pgvector, Redis 7
+├── docker-compose.yml       # API, worker, Postgres 16 + pgvector, Redis 7
 ├── Makefile
 ├── pyproject.toml
 └── alembic.ini
@@ -104,6 +105,8 @@ Health is mounted at the root. Everything else is under `/api/v1`.
 | `POST` | `.../knowledge/{source_id}/approve` | Approve (owner or admin) |
 | `POST` | `.../knowledge/{source_id}/reject` | Reject with a note (owner or admin) |
 | `POST` | `.../knowledge/{source_id}/archive` | Archive (owner or admin) |
+| `GET` | `.../knowledge/{source_id}/chunks` | Chunks built from an approved source |
+| `GET` | `.../knowledge/{source_id}/ingestion` | Latest ingestion job and its status |
 
 Workspace roles are `owner`, `admin`, `agent`, and `member`. Ticket status is `open`, `pending`, `resolved`, or `closed`. Priority is `low`, `medium`, `high`, or `urgent`. Messages are `reply`, `internal_note`, or `system`.
 
@@ -127,6 +130,16 @@ Rules:
 - Editing a rejected draft sends it back to review. An owner or admin editing approved text keeps it approved and becomes its reviewer. Every content change bumps `version`.
 - Archive instead of delete, so past answers that cited a source stay traceable.
 
+## Ingestion
+
+A separate worker process turns approved knowledge into chunks: `make worker` locally, the `worker` service in Docker Compose.
+
+- **Queue.** Jobs are rows in `ingestion_jobs`, inserted in the same transaction that approves, edits, or archives a source, so a job is never lost. Workers claim them with `SELECT ... FOR UPDATE SKIP LOCKED`, so several can run at once without taking the same job.
+- **Idempotent.** A job only names a source. The worker reads the source when it runs: an approved source gets the chunks its current text produces, anything else gets none. Edits made before a job runs share one queued job.
+- **Chunking.** Markdown is split on headings, then whole paragraphs are packed to about 1,600 characters (roughly 400 tokens), with a short overlap when a section spills over. Code blocks stay whole unless one alone is over 2,400 characters. Each chunk keeps its heading path, like `Guide > Billing > Refunds`. Ticket answers repeat the question in every chunk.
+- **Unchanged text is kept.** A re-sync keeps chunks whose text did not change and only adds or removes the rest, so later embeddings are only recomputed where needed.
+- **Failures.** A failed job retries after 10s, 20s, 40s, and so on (capped at an hour), up to `INGESTION_MAX_ATTEMPTS` (default 5), then stays `failed` with `last_error`. A worker that dies mid-job leaves a lease (`INGESTION_LEASE_SECONDS`, default 300) that runs out, and another worker picks the job up.
+
 ## Local
 
 Requires Python 3.12+.
@@ -138,7 +151,8 @@ make install
 cp .env.example .env
 make db        # Postgres and Redis in Docker
 make migrate
-make dev
+make dev        # API
+make worker     # ingestion, in a second terminal
 ```
 
 - Liveness: `GET /health`

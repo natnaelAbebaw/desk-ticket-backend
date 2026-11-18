@@ -9,7 +9,10 @@ Status changes:
     rejected --edit-----------> pending_review
     any (except archived) --archive--> archived
 
-Only approved sources will be ingested and retrieved in later milestones.
+Only approved sources are chunked and retrieved. Any change that can alter what is
+retrievable (a source becoming approved, approved text being edited, or an approved
+source being archived) queues an ingestion job in the same transaction. See
+app/ingestion/jobs.py for why that matters.
 """
 
 import hashlib
@@ -21,6 +24,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import AppError
+from app.ingestion.jobs import enqueue_sync
 from app.models.knowledge import KnowledgeKind, KnowledgeSource, KnowledgeStatus
 from app.models.ticket import TicketStatus
 from app.models.timestamps import utcnow
@@ -88,8 +92,18 @@ async def _ensure_unique_content(
         raise _duplicate(existing)
 
 
-async def _commit(session: AsyncSession, source: KnowledgeSource) -> KnowledgeSource:
+async def _commit(
+    session: AsyncSession, source: KnowledgeSource, *, resync: bool = False
+) -> KnowledgeSource:
+    """Commit the source change. With resync=True, also queue an ingestion job in the
+    same transaction, so the change and its job are saved together or not at all."""
     try:
+        if resync:
+            # flush sends the INSERT/UPDATE now, inside the open transaction. A new
+            # source needs that before the job row can reference it by foreign key.
+            # A duplicate also fails here, and lands in the except below like at commit.
+            await session.flush()
+            await enqueue_sync(session, workspace_id=source.workspace_id, source_id=source.id)
         await session.commit()
     except IntegrityError as exc:
         # After a failed commit the session is unusable until rolled back.
@@ -154,7 +168,8 @@ async def create_document(
         source.status = KnowledgeStatus.approved.value
         _mark_reviewed(source, actor.user_id, None)
     session.add(source)
-    return await _commit(session, source)
+    approved = source.status == KnowledgeStatus.approved.value
+    return await _commit(session, source, resync=approved)
 
 
 async def propose_ticket_answer(
@@ -303,7 +318,9 @@ async def update_source(
     elif source.status == KnowledgeStatus.rejected.value:
         source.status = KnowledgeStatus.pending_review.value
         _clear_review(source)
-    return await _commit(session, source)
+    # Edits to pending or rejected drafts change nothing retrievable.
+    approved = source.status == KnowledgeStatus.approved.value
+    return await _commit(session, source, resync=approved)
 
 
 async def approve_source(
@@ -319,7 +336,7 @@ async def approve_source(
     source.status = KnowledgeStatus.approved.value
     _mark_reviewed(source, actor.user_id, None)
     source.updated_at = utcnow()
-    return await _commit(session, source)
+    return await _commit(session, source, resync=True)
 
 
 async def reject_source(
@@ -348,6 +365,8 @@ async def archive_source(
     source = await get_source(session, workspace_id, source_id)
     if source.status == KnowledgeStatus.archived.value:
         raise AppError("invalid_status", "Knowledge is already archived", status_code=409)
+    # Only an approved source has chunks to remove.
+    was_approved = source.status == KnowledgeStatus.approved.value
     source.status = KnowledgeStatus.archived.value
     source.updated_at = utcnow()
-    return await _commit(session, source)
+    return await _commit(session, source, resync=was_approved)

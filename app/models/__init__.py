@@ -1,3 +1,4 @@
+from app.models.ingestion import IngestionJob, JobStatus, KnowledgeChunk
 from app.models.knowledge import KnowledgeKind, KnowledgeSource, KnowledgeStatus
 from app.models.ticket import (
     MessageType,
@@ -13,6 +14,9 @@ from app.models.user import User
 from app.models.workspace import Workspace, WorkspaceMember, WorkspaceRole
 
 __all__ = [
+    "IngestionJob",
+    "JobStatus",
+    "KnowledgeChunk",
     "KnowledgeKind",
     "KnowledgeSource",
     "KnowledgeStatus",
