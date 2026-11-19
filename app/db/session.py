@@ -6,11 +6,12 @@ from app.core.config import get_settings
 
 settings = get_settings()
 
-_engine_kwargs: dict[str, object] = {}
-if not settings.database_url.startswith("sqlite"):
-    _engine_kwargs = {"pool_pre_ping": True, "pool_size": 10, "max_overflow": 20}
-
-engine = create_async_engine(settings.database_url, **_engine_kwargs)
+engine = create_async_engine(
+    settings.database_url,
+    pool_pre_ping=True,
+    pool_size=10,
+    max_overflow=20,
+)
 SessionLocal = async_sessionmaker(engine, expire_on_commit=False)
 
 

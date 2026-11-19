@@ -67,15 +67,19 @@ def _add_event(
 
 
 async def create_ticket(
-    session: AsyncSession, workspace_id: uuid.UUID, payload: TicketCreate
+    session: AsyncSession,
+    workspace_id: uuid.UUID,
+    payload: TicketCreate,
+    *,
+    actor_id: uuid.UUID,
 ) -> Ticket:
     await workspace_service.get_workspace(session, workspace_id)
-    await workspace_service.require_member(session, workspace_id, payload.created_by)
+    await workspace_service.require_member(session, workspace_id, actor_id)
     if payload.assigned_to is not None:
         await workspace_service.require_member(session, workspace_id, payload.assigned_to)
     ticket = Ticket(
         workspace_id=workspace_id,
-        created_by=payload.created_by,
+        created_by=actor_id,
         assigned_to=payload.assigned_to,
         subject=payload.subject,
         description=payload.description,
@@ -84,7 +88,7 @@ async def create_ticket(
     )
     session.add(ticket)
     await session.flush()
-    _add_event(session, ticket, actor_id=payload.created_by, event_type=TicketEventType.created)
+    _add_event(session, ticket, actor_id=actor_id, event_type=TicketEventType.created)
     await session.commit()
     await session.refresh(ticket)
     await bump_ticket_list_version(workspace_id)
@@ -139,11 +143,12 @@ async def update_ticket(
     workspace_id: uuid.UUID,
     ticket_id: uuid.UUID,
     payload: TicketUpdate,
+    *,
+    actor_id: uuid.UUID,
 ) -> Ticket:
     ticket = await get_ticket(session, workspace_id, ticket_id)
-    await workspace_service.require_member(session, workspace_id, payload.actor_id)
+    await workspace_service.require_member(session, workspace_id, actor_id)
     changes = payload.model_dump(exclude_unset=True)
-    changes.pop("actor_id")
     if not changes:
         raise AppError("empty_update", "At least one field is required", status_code=400)
     if "assigned_to" in changes and changes["assigned_to"] is not None:
@@ -167,7 +172,7 @@ async def update_ticket(
         _add_event(
             session,
             ticket,
-            actor_id=payload.actor_id,
+            actor_id=actor_id,
             event_type=event_type,
             old_value=_stored(previous),
             new_value=_stored(stored),
@@ -188,13 +193,14 @@ async def add_message(
     workspace_id: uuid.UUID,
     ticket_id: uuid.UUID,
     payload: TicketMessageCreate,
+    *,
+    author_id: uuid.UUID,
 ) -> TicketMessage:
     ticket = await get_ticket(session, workspace_id, ticket_id)
-    if payload.author_id is not None:
-        await workspace_service.require_member(session, workspace_id, payload.author_id)
+    await workspace_service.require_member(session, workspace_id, author_id)
     message = TicketMessage(
         ticket_id=ticket.id,
-        author_id=payload.author_id,
+        author_id=author_id,
         body=payload.body,
         message_type=payload.message_type.value,
     )
@@ -203,7 +209,7 @@ async def add_message(
     _add_event(
         session,
         ticket,
-        actor_id=payload.author_id,
+        actor_id=author_id,
         event_type=TicketEventType.message_added,
         new_value=str(message.id),
         metadata={"message_type": payload.message_type.value},

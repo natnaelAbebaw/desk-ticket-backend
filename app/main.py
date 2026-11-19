@@ -47,7 +47,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @app.exception_handler(AppError)
     async def app_error_handler(request: Request, exc: AppError) -> JSONResponse:
-        return _error(exc.status_code, exc.code, exc.message)
+        return _error(exc.status_code, exc.code, exc.message, headers=exc.headers)
 
     @app.exception_handler(RequestValidationError)
     async def validation_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
@@ -87,6 +87,7 @@ def _error(
     code: str,
     message: str,
     details: list[object] | None = None,
+    headers: dict[str, str] | None = None,
 ) -> JSONResponse:
     error: dict[str, object] = {
         "code": code,
@@ -95,7 +96,7 @@ def _error(
     }
     if details is not None:
         error["details"] = details
-    return JSONResponse(status_code=status_code, content={"error": error})
+    return JSONResponse(status_code=status_code, content={"error": error}, headers=headers)
 
 
 app = create_app()

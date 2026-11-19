@@ -2,28 +2,10 @@ import pytest
 from httpx import AsyncClient
 from pydantic import ValidationError
 
-from app.core.config import Settings, get_settings
+from app.core.config import Settings
 from app.models.ticket import Ticket
 
-
-async def _user(client: AsyncClient, email: str, name: str) -> str:
-    response = await client.post(
-        "/api/v1/users",
-        json={"email": email, "name": name, "password": "password123"},
-    )
-    assert response.status_code == 201
-    return response.json()["id"]
-
-
-async def _workspace(client: AsyncClient, owner_id: str, slug: str = "acme") -> str:
-    response = await client.post(
-        "/api/v1/workspaces",
-        json={"name": "Acme", "slug": slug, "owner_id": owner_id},
-    )
-    assert response.status_code == 201
-    body = response.json()
-    assert body["slug"] == slug
-    return body["id"]
+from helpers import create_workspace, signup
 
 
 def test_ticket_workspace_created_index() -> None:
@@ -34,13 +16,15 @@ def test_ticket_workspace_created_index() -> None:
 
 
 async def test_ticket_crud(client: AsyncClient) -> None:
-    owner_id = await _user(client, "ada@example.com", "Ada")
-    agent_id = await _user(client, "grace@example.com", "Grace")
-    workspace_id = await _workspace(client, owner_id)
+    owner = await signup(client, "ada@example.com", "Ada")
+    agent = await signup(client, "grace@example.com", "Grace")
+    workspace_id = await create_workspace(client, owner)
+    owner_id, agent_id = owner.id, agent.id
 
     member = await client.post(
         f"/api/v1/workspaces/{workspace_id}/members",
         json={"user_id": agent_id, "role": "agent"},
+        headers=owner.headers,
     )
     assert member.status_code == 201
     assert member.json()["role"] == "agent"
@@ -52,9 +36,9 @@ async def test_ticket_crud(client: AsyncClient) -> None:
             "description": "Floor 3",
             "priority": "urgent",
             "category": "technical",
-            "created_by": owner_id,
             "assigned_to": agent_id,
         },
+        headers=owner.headers,
     )
     assert created.status_code == 201
     body = created.json()
@@ -63,24 +47,29 @@ async def test_ticket_crud(client: AsyncClient) -> None:
     assert body["priority"] == "urgent"
     assert body["category"] == "technical"
     assert body["assigned_to"] == agent_id
+    assert body["created_by"] == owner_id
     assert body["closed_at"] is None
     ticket_id = body["id"]
 
     listed = await client.get(
         f"/api/v1/workspaces/{workspace_id}/tickets",
         params={"priority": "urgent", "category": "technical"},
+        headers=agent.headers,
     )
     assert listed.status_code == 200
     page = listed.json()
     assert page["total"] == 1
     assert page["items"][0]["id"] == ticket_id
 
-    fetched = await client.get(f"/api/v1/workspaces/{workspace_id}/tickets/{ticket_id}")
+    fetched = await client.get(
+        f"/api/v1/workspaces/{workspace_id}/tickets/{ticket_id}", headers=agent.headers
+    )
     assert fetched.status_code == 200
 
     updated = await client.patch(
         f"/api/v1/workspaces/{workspace_id}/tickets/{ticket_id}",
-        json={"status": "closed", "actor_id": agent_id},
+        json={"status": "closed"},
+        headers=agent.headers,
     )
     assert updated.status_code == 200
     assert updated.json()["status"] == "closed"
@@ -88,7 +77,8 @@ async def test_ticket_crud(client: AsyncClient) -> None:
 
     reopened = await client.patch(
         f"/api/v1/workspaces/{workspace_id}/tickets/{ticket_id}",
-        json={"status": "open", "actor_id": owner_id},
+        json={"status": "open"},
+        headers=owner.headers,
     )
     assert reopened.status_code == 200
     assert reopened.json()["status"] == "open"
@@ -96,51 +86,56 @@ async def test_ticket_crud(client: AsyncClient) -> None:
 
     message = await client.post(
         f"/api/v1/workspaces/{workspace_id}/tickets/{ticket_id}/messages",
-        json={"author_id": agent_id, "body": "Looking at the printer.", "message_type": "reply"},
+        json={"body": "Looking at the printer.", "message_type": "reply"},
+        headers=agent.headers,
     )
     assert message.status_code == 201
     assert message.json()["message_type"] == "reply"
+    assert message.json()["author_id"] == agent_id
 
     note = await client.post(
         f"/api/v1/workspaces/{workspace_id}/tickets/{ticket_id}/messages",
-        json={
-            "author_id": agent_id,
-            "body": "Needs a new roller.",
-            "message_type": "internal_note",
-        },
+        json={"body": "Needs a new roller.", "message_type": "internal_note"},
+        headers=agent.headers,
     )
     assert note.status_code == 201
 
-    events = await client.get(f"/api/v1/workspaces/{workspace_id}/tickets/{ticket_id}/events")
+    events = await client.get(
+        f"/api/v1/workspaces/{workspace_id}/tickets/{ticket_id}/events", headers=owner.headers
+    )
     assert events.status_code == 200
     items = events.json()["items"]
     event_types = [item["event_type"] for item in items]
     assert event_types[0] == "created"
+    assert items[0]["actor_id"] == owner_id
     assert "closed" in event_types
     assert "reopened" in event_types
     added = [item for item in items if item["event_type"] == "message_added"]
     assert {item["metadata"]["message_type"] for item in added} == {"reply", "internal_note"}
 
 
-async def test_outsider_cannot_open_ticket(client: AsyncClient) -> None:
-    owner_id = await _user(client, "owner@example.com", "Owner")
-    outsider_id = await _user(client, "outsider@example.com", "Outsider")
-    workspace_id = await _workspace(client, owner_id, slug="acme-2")
-    response = await client.post(
-        f"/api/v1/workspaces/{workspace_id}/tickets",
-        json={"subject": "Nope", "created_by": outsider_id},
-    )
-    assert response.status_code == 403
-    assert response.json()["error"]["code"] == "not_a_member"
-
-
 async def test_missing_ticket(client: AsyncClient) -> None:
+    owner = await signup(client, "owner@example.com", "Owner")
+    workspace_id = await create_workspace(client, owner)
     response = await client.get(
-        "/api/v1/workspaces/00000000-0000-0000-0000-000000000000/tickets/"
-        "00000000-0000-0000-0000-000000000000"
+        f"/api/v1/workspaces/{workspace_id}/tickets/00000000-0000-0000-0000-000000000000",
+        headers=owner.headers,
     )
     assert response.status_code == 404
     assert response.json()["error"]["code"] == "not_found"
+
+
+async def test_assignee_must_be_member(client: AsyncClient) -> None:
+    owner = await signup(client, "owner@example.com", "Owner")
+    outsider = await signup(client, "outsider@example.com", "Outsider")
+    workspace_id = await create_workspace(client, owner)
+    response = await client.post(
+        f"/api/v1/workspaces/{workspace_id}/tickets",
+        json={"subject": "Nope", "assigned_to": outsider.id},
+        headers=owner.headers,
+    )
+    assert response.status_code == 403
+    assert response.json()["error"]["code"] == "not_a_member"
 
 
 async def test_validation_error(client: AsyncClient) -> None:
@@ -152,27 +147,8 @@ async def test_validation_error(client: AsyncClient) -> None:
     assert response.json()["error"]["code"] == "validation_error"
 
 
-async def test_api_key_required(client: AsyncClient, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("API_KEY", "test-key-value-123")
-    get_settings.cache_clear()
-    payload = {"email": "locked@example.com", "name": "Locked", "password": "password123"}
-    try:
-        denied = await client.post("/api/v1/users", json=payload)
-        assert denied.status_code == 401
-
-        allowed = await client.post(
-            "/api/v1/users",
-            json=payload,
-            headers={"Authorization": "Bearer test-key-value-123"},
-        )
-        assert allowed.status_code == 201
-    finally:
-        get_settings.cache_clear()
-
-
 def test_production_settings_reject_weak_secret(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("ENVIRONMENT", "production")
     monkeypatch.setenv("SECRET_KEY", "change-me")
-    monkeypatch.setenv("API_KEY", "a" * 16)
     with pytest.raises(ValidationError):
         Settings()

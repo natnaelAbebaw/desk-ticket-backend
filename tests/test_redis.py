@@ -5,6 +5,8 @@ from redis.exceptions import RedisError
 
 from app.core.redis import set_redis
 
+from helpers import create_workspace, signup
+
 
 class FakeRedis:
     def __init__(self) -> None:
@@ -59,19 +61,15 @@ async def test_user_cache_serves_stored_record(client: AsyncClient) -> None:
     fake = FakeRedis()
     set_redis(fake)
     try:
-        created = await client.post(
-            "/api/v1/users",
-            json={"email": "ada@example.com", "name": "Ada", "password": "password123"},
-        )
-        assert created.status_code == 201
-        user_id = created.json()["id"]
-        fetched = await client.get(f"/api/v1/users/{user_id}")
+        ada = await signup(client, "ada@example.com", "Ada")
+        user_id = ada.id
+        fetched = await client.get(f"/api/v1/users/{user_id}", headers=ada.headers)
         assert fetched.status_code == 200
         key = f"user:{user_id}"
         stored = json.loads(fake.values[key])
         stored["name"] = "Cached Ada"
         fake.values[key] = json.dumps(stored)
-        cached = await client.get(f"/api/v1/users/{user_id}")
+        cached = await client.get(f"/api/v1/users/{user_id}", headers=ada.headers)
         assert cached.status_code == 200
         assert cached.json()["name"] == "Cached Ada"
     finally:
@@ -81,32 +79,18 @@ async def test_user_cache_serves_stored_record(client: AsyncClient) -> None:
 async def test_ticket_list_cache_refreshes_after_create(client: AsyncClient) -> None:
     set_redis(FakeRedis())
     try:
-        created_user = await client.post(
-            "/api/v1/users",
-            json={"email": "ada@example.com", "name": "Ada", "password": "password123"},
-        )
-        owner_id = created_user.json()["id"]
-        created_workspace = await client.post(
-            "/api/v1/workspaces",
-            json={"name": "Acme", "slug": "acme", "owner_id": owner_id},
-        )
-        workspace_id = created_workspace.json()["id"]
+        owner = await signup(client, "ada@example.com", "Ada")
+        workspace_id = await create_workspace(client, owner)
         ticket_url = f"/api/v1/workspaces/{workspace_id}/tickets"
 
-        first = await client.post(
-            ticket_url,
-            json={"subject": "One", "created_by": owner_id},
-        )
+        first = await client.post(ticket_url, json={"subject": "One"}, headers=owner.headers)
         assert first.status_code == 201
-        listed = await client.get(ticket_url)
+        listed = await client.get(ticket_url, headers=owner.headers)
         assert listed.json()["total"] == 1
 
-        second = await client.post(
-            ticket_url,
-            json={"subject": "Two", "created_by": owner_id},
-        )
+        second = await client.post(ticket_url, json={"subject": "Two"}, headers=owner.headers)
         assert second.status_code == 201
-        listed_again = await client.get(ticket_url)
+        listed_again = await client.get(ticket_url, headers=owner.headers)
         assert listed_again.status_code == 200
         assert listed_again.json()["total"] == 2
     finally:

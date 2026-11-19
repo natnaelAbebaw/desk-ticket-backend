@@ -1,3 +1,4 @@
+from app.schemas.auth import TokenRequest, TokenResponse
 from app.schemas.common import ErrorResponse, Message, Page
 from app.schemas.ticket import (
     TicketCreate,
@@ -22,6 +23,8 @@ __all__ = [
     "TicketMessageRead",
     "TicketRead",
     "TicketUpdate",
+    "TokenRequest",
+    "TokenResponse",
     "UserCreate",
     "UserRead",
     "WorkspaceCreate",

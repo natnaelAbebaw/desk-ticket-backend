@@ -53,9 +53,7 @@ class TicketEventType(StrEnum):
 
 class Ticket(Base):
     __tablename__ = "tickets"
-    __table_args__ = (
-        Index("ix_tickets_workspace_created_at", "workspace_id", "created_at"),
-    )
+    __table_args__ = (Index("ix_tickets_workspace_created_at", "workspace_id", "created_at"),)
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     workspace_id: Mapped[uuid.UUID] = mapped_column(

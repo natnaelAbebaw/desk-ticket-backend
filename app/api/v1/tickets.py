@@ -3,7 +3,7 @@ import uuid
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import rate_limit_default, rate_limit_writes, require_api_key
+from app.api.deps import Membership, rate_limit_default, rate_limit_writes
 from app.core.cache import (
     TICKET_LIST_TTL_SECONDS,
     get_text,
@@ -23,7 +23,9 @@ from app.schemas.ticket import (
 )
 from app.services import tickets as ticket_service
 
-router = APIRouter(dependencies=[Depends(require_api_key), Depends(rate_limit_default)])
+# Every route needs the caller to be a member of the workspace in the path.
+# Non-members get 404, the same as a workspace that does not exist.
+router = APIRouter(dependencies=[Depends(rate_limit_default)])
 
 
 @router.post(
@@ -35,15 +37,19 @@ router = APIRouter(dependencies=[Depends(require_api_key), Depends(rate_limit_de
 async def create_ticket(
     workspace_id: uuid.UUID,
     payload: TicketCreate,
+    member: Membership,
     session: AsyncSession = Depends(get_db),
 ) -> TicketRead:
-    ticket = await ticket_service.create_ticket(session, workspace_id, payload)
+    ticket = await ticket_service.create_ticket(
+        session, workspace_id, payload, actor_id=member.user_id
+    )
     return TicketRead.model_validate(ticket)
 
 
 @router.get("", response_model=Page[TicketRead])
 async def list_tickets(
     workspace_id: uuid.UUID,
+    _member: Membership,
     status: TicketStatus | None = None,
     priority: TicketPriority | None = None,
     category: TicketCategory | None = None,
@@ -84,6 +90,7 @@ async def list_tickets(
 async def get_ticket(
     workspace_id: uuid.UUID,
     ticket_id: uuid.UUID,
+    _member: Membership,
     session: AsyncSession = Depends(get_db),
 ) -> TicketRead:
     ticket = await ticket_service.get_ticket(session, workspace_id, ticket_id)
@@ -95,9 +102,12 @@ async def update_ticket(
     workspace_id: uuid.UUID,
     ticket_id: uuid.UUID,
     payload: TicketUpdate,
+    member: Membership,
     session: AsyncSession = Depends(get_db),
 ) -> TicketRead:
-    ticket = await ticket_service.update_ticket(session, workspace_id, ticket_id, payload)
+    ticket = await ticket_service.update_ticket(
+        session, workspace_id, ticket_id, payload, actor_id=member.user_id
+    )
     return TicketRead.model_validate(ticket)
 
 
@@ -111,9 +121,12 @@ async def add_message(
     workspace_id: uuid.UUID,
     ticket_id: uuid.UUID,
     payload: TicketMessageCreate,
+    member: Membership,
     session: AsyncSession = Depends(get_db),
 ) -> TicketMessageRead:
-    message = await ticket_service.add_message(session, workspace_id, ticket_id, payload)
+    message = await ticket_service.add_message(
+        session, workspace_id, ticket_id, payload, author_id=member.user_id
+    )
     return TicketMessageRead.model_validate(message)
 
 
@@ -121,6 +134,7 @@ async def add_message(
 async def list_messages(
     workspace_id: uuid.UUID,
     ticket_id: uuid.UUID,
+    _member: Membership,
     limit: int = Query(default=20, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
     session: AsyncSession = Depends(get_db),
@@ -140,6 +154,7 @@ async def list_messages(
 async def list_events(
     workspace_id: uuid.UUID,
     ticket_id: uuid.UUID,
+    _member: Membership,
     limit: int = Query(default=20, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
     session: AsyncSession = Depends(get_db),

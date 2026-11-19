@@ -17,12 +17,10 @@ class TicketCreate(BaseModel):
     description: str = ""
     priority: TicketPriority = TicketPriority.medium
     category: TicketCategory = TicketCategory.general
-    created_by: uuid.UUID
     assigned_to: uuid.UUID | None = None
 
 
 class TicketUpdate(BaseModel):
-    actor_id: uuid.UUID
     subject: str | None = Field(default=None, min_length=1, max_length=200)
     description: str | None = None
     status: TicketStatus | None = None
@@ -49,14 +47,13 @@ class TicketRead(BaseModel):
 
 
 class TicketMessageCreate(BaseModel):
-    author_id: uuid.UUID | None = None
     body: str = Field(min_length=1)
     message_type: MessageType = MessageType.reply
 
     @model_validator(mode="after")
-    def author_required_for_people(self) -> "TicketMessageCreate":
-        if self.message_type != MessageType.system and self.author_id is None:
-            raise ValueError("author_id is required unless message_type is system")
+    def system_messages_are_server_only(self) -> "TicketMessageCreate":
+        if self.message_type == MessageType.system:
+            raise ValueError("system messages are written by the server, not by API callers")
         return self
 
 

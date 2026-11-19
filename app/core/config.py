@@ -13,10 +13,10 @@ class Settings(BaseSettings):
     environment: Literal["local", "staging", "production"] = "local"
     debug: bool = False
     api_v1_prefix: str = "/api/v1"
-    database_url: str = "sqlite+aiosqlite:///./desk_ticket.db"
+    database_url: str = "postgresql+asyncpg://desk:desk@localhost:5432/desk"
     redis_url: str = "redis://localhost:6379/0"
     secret_key: str = "change-me"
-    api_key: str = ""
+    access_token_ttl_minutes: int = Field(default=60, ge=1, le=1440)
     cors_origins: list[str] = Field(default_factory=lambda: ["http://localhost:3000"])
     log_level: str = "INFO"
     log_json: bool = False
@@ -43,8 +43,6 @@ class Settings(BaseSettings):
             raise ValueError("DEBUG must be false in production")
         if len(self.secret_key) < 32 or self.secret_key.lower() in _WEAK_SECRETS:
             raise ValueError("SECRET_KEY must be a unique value of at least 32 characters")
-        if len(self.api_key) < 16:
-            raise ValueError("API_KEY must be set to at least 16 characters in production")
         return self
 
 
