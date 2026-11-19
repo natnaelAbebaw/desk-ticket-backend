@@ -17,6 +17,13 @@ class Settings(BaseSettings):
     redis_url: str = "redis://localhost:6379/0"
     secret_key: str = "change-me"
     access_token_ttl_minutes: int = Field(default=60, ge=1, le=1440)
+    # Ingestion worker. See app/ingestion/worker.py.
+    # Seconds to sleep when no job is due. Lower means faster pickup, more idle queries.
+    ingestion_poll_seconds: float = Field(default=1.0, gt=0)
+    # How long a claimed job is reserved. Must be longer than the slowest job, or a
+    # second worker will start the same job while the first is still on it.
+    ingestion_lease_seconds: int = Field(default=300, ge=10)
+    ingestion_max_attempts: int = Field(default=5, ge=1)
     cors_origins: list[str] = Field(default_factory=lambda: ["http://localhost:3000"])
     log_level: str = "INFO"
     log_json: bool = False

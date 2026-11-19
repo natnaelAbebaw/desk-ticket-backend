@@ -1,4 +1,4 @@
-.PHONY: install db dev test lint migrate
+.PHONY: install db dev worker test lint migrate
 
 install:
 	python -m pip install -e ".[dev]"
@@ -8,6 +8,10 @@ db:
 
 dev:
 	uvicorn app.main:app --reload
+
+# Chunks approved knowledge in the background. Run next to `make dev`.
+worker:
+	python -m app.ingestion.worker
 
 test:
 	pytest
