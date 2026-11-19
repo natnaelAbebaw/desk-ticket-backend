@@ -2,18 +2,31 @@ import uuid
 from datetime import datetime
 from enum import StrEnum
 
+from pgvector.sqlalchemy import Vector
 from sqlalchemy import DateTime, ForeignKey, Index, Integer, String, Text, Uuid, func, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
 from app.models.timestamps import utcnow
 
+# Size of the vectors in knowledge_chunks.embedding. pgvector fixes the size per column,
+# and every vector in one column must come from a model with this output size. 768 is
+# nomic-embed-text's size. Moving to a model with another size needs a migration that
+# changes the column, which is deliberate: vectors of different sizes (or different
+# models) cannot be compared, so the old ones are useless after such a switch anyway.
+EMBEDDING_DIMENSIONS = 768
+
 
 class KnowledgeChunk(Base):
     """A retrievable piece of an approved knowledge source.
 
     Chunks are derived data: they can always be rebuilt from knowledge_sources, so
-    they are replaced freely. Milestone 3 adds the embedding column here.
+    they are replaced freely.
+
+    A chunk row is written first (by sync) and embedded a moment later (by the worker's
+    embed phase), so for a short time, or longer if the embedding model is down, a
+    chunk exists without a vector. Search must only use rows whose embedding_model
+    matches the current model, which also skips rows with no vector at all.
     """
 
     __tablename__ = "knowledge_chunks"
@@ -42,6 +55,15 @@ class KnowledgeChunk(Base):
     # sha256 of heading + content. Unchanged hash after an edit = keep this row.
     content_hash: Mapped[str] = mapped_column(String(64))
     token_estimate: Mapped[int] = mapped_column(Integer)
+    # pgvector's vector type. In Python it is a plain list[float].
+    embedding: Mapped[list[float] | None] = mapped_column(Vector(EMBEDDING_DIMENSIONS))
+    # Which model produced `embedding`. Vectors from two models live in different
+    # spaces, so a search must only compare a query vector with chunk vectors from the
+    # same model. Storing the name per row is what makes a model switch safe: rows
+    # whose name differs from the configured model are re-embedded in the background
+    # and ignored by search until then.
+    embedding_model: Mapped[str | None] = mapped_column(String(100))
+    embedded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
@@ -100,6 +122,9 @@ class IngestionJob(Base):
     locked_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     last_error: Mapped[str | None] = mapped_column(Text)
     chunk_count: Mapped[int | None] = mapped_column(Integer)
+    # Chunks this run sent to the embedding model. Usually far below chunk_count after
+    # an edit, because unchanged chunks keep their vectors. A rough cost signal.
+    embedded_count: Mapped[int | None] = mapped_column(Integer)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

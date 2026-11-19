@@ -26,6 +26,9 @@ TEST_URL = _test_url()
 # may point somewhere else. Environment variables win over .env, so set it before any
 # app import below. This file sits outside the import sort for that reason (E402).
 os.environ["DATABASE_URL"] = TEST_URL.render_as_string(hide_password=False)
+# Belt and braces: tests pass a FakeEmbedder explicitly, but anything that builds an
+# embedder from settings must never reach out to a real model either.
+os.environ["EMBEDDING_PROVIDER"] = "fake"
 
 import pytest_asyncio
 from alembic.config import Config
@@ -40,10 +43,11 @@ from sqlalchemy.ext.asyncio import (
 )
 
 from alembic import command
-from app.core.config import get_settings
+from app.core.config import Settings, get_settings
 from app.core.redis import close_redis
 from app.db.base import Base
 from app.db.session import get_db
+from app.embeddings import FakeEmbedder
 from app.main import app
 
 
@@ -112,3 +116,25 @@ async def client(
     app.dependency_overrides.clear()
     await close_redis()
     get_settings.cache_clear()
+
+
+# Worker fixtures, for tests that drive the ingestion worker directly.
+
+
+@pytest.fixture
+def factory(engine: AsyncEngine) -> async_sessionmaker[AsyncSession]:
+    """Sessions for the worker under test, like app.db.session.SessionLocal."""
+    return async_sessionmaker(engine, expire_on_commit=False)
+
+
+@pytest.fixture
+def settings() -> Settings:
+    # Small numbers so retry tests finish in a few rounds.
+    return get_settings().model_copy(
+        update={"ingestion_max_attempts": 3, "ingestion_lease_seconds": 60}
+    )
+
+
+@pytest.fixture
+def embedder() -> FakeEmbedder:
+    return FakeEmbedder()

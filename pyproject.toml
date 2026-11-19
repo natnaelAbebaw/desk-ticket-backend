@@ -17,6 +17,9 @@ dependencies = [
     "alembic>=1.14",
     "redis>=5",
     "pyjwt>=2.9",
+    "pgvector>=0.3",
+    # Calls the embedding model's HTTP API (Ollama).
+    "httpx>=0.27",
 ]
 
 [project.optional-dependencies]

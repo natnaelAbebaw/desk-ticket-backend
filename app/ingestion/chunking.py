@@ -38,6 +38,16 @@ _FENCE = re.compile(r"^\s*(```|~~~)")
 _SENTENCE_END = re.compile(r"(?<=[.!?])\s+")
 
 
+def embedding_text(heading: str, content: str) -> str:
+    """The exact text sent to the embedding model: heading context plus content.
+
+    Including the heading helps a chunk like "Click Save." match a question about
+    "changing billing email", which only the heading mentions. The embed phase calls
+    this with stored rows, so it is a function and not only a Chunk property.
+    """
+    return f"{heading}\n\n{content}"
+
+
 @dataclass(frozen=True)
 class Chunk:
     position: int
@@ -50,12 +60,7 @@ class Chunk:
 
     @property
     def embedding_text(self) -> str:
-        """The exact text milestone 3 will embed: heading context plus content.
-
-        Including the heading helps a chunk like "Click Save." match a question
-        about "changing billing email", which only the heading mentions.
-        """
-        return f"{self.heading}\n\n{self.content}"
+        return embedding_text(self.heading, self.content)
 
 
 def chunk_hash(heading: str, content: str) -> str:
