@@ -13,12 +13,13 @@ HTTP API for a multi-workspace help desk. Users belong to workspaces, and each w
 | PyJWT | Signed access tokens (HS256) |
 | SQLAlchemy 2 (async) | Database models and queries |
 | Alembic | Schema migrations |
-| PostgreSQL 16 with pgvector (`asyncpg`) | Database, locally and in tests |
+| PostgreSQL 16 with pgvector (`asyncpg`) | Database and chunk embeddings, locally and in tests |
+| Ollama with `nomic-embed-text` | Free, open-source embedding model served over HTTP |
 | Redis 7 | Read cache, ticket-list invalidation, rate limits, readiness |
 | Hatchling | Package build |
 | pytest, pytest-asyncio, httpx | Tests |
 | Ruff | Lint and format checks |
-| Docker Compose | API, ingestion worker, Postgres, and Redis together |
+| Docker Compose | API, ingestion worker, Ollama, Postgres, and Redis together |
 
 ## Authentication and tenant isolation
 
@@ -55,6 +56,7 @@ desk-ticket-backend/
 │   │   ├── redis.py         # Redis client lifecycle
 │   │   └── cache.py         # Cached reads and ticket-list version
 │   ├── ingestion/           # Chunker, Postgres job queue, worker process
+│   ├── embeddings/          # Embedder interface, Ollama and fake embedders, embed phase, backfill
 │   ├── db/
 │   │   ├── base.py          # SQLAlchemy Base
 │   │   └── session.py       # Async engine and get_db
@@ -65,7 +67,7 @@ desk-ticket-backend/
 ├── tests/                   # API tests, including a fake Redis
 ├── docker/entrypoint.sh     # Migrate, then start Uvicorn
 ├── Dockerfile
-├── docker-compose.yml       # API, worker, Postgres 16 + pgvector, Redis 7
+├── docker-compose.yml       # API, worker, Ollama, Postgres 16 + pgvector, Redis 7
 ├── Makefile
 ├── pyproject.toml
 └── alembic.ini
@@ -105,7 +107,7 @@ Health is mounted at the root. Everything else is under `/api/v1`.
 | `POST` | `.../knowledge/{source_id}/approve` | Approve (owner or admin) |
 | `POST` | `.../knowledge/{source_id}/reject` | Reject with a note (owner or admin) |
 | `POST` | `.../knowledge/{source_id}/archive` | Archive (owner or admin) |
-| `GET` | `.../knowledge/{source_id}/chunks` | Chunks built from an approved source |
+| `GET` | `.../knowledge/{source_id}/chunks` | Chunks built from an approved source, with the model that embedded each |
 | `GET` | `.../knowledge/{source_id}/ingestion` | Latest ingestion job and its status |
 
 Workspace roles are `owner`, `admin`, `agent`, and `member`. Ticket status is `open`, `pending`, `resolved`, or `closed`. Priority is `low`, `medium`, `high`, or `urgent`. Messages are `reply`, `internal_note`, or `system`.
@@ -140,6 +142,17 @@ A separate worker process turns approved knowledge into chunks: `make worker` lo
 - **Unchanged text is kept.** A re-sync keeps chunks whose text did not change and only adds or removes the rest, so later embeddings are only recomputed where needed.
 - **Failures.** A failed job retries after 10s, 20s, 40s, and so on (capped at an hour), up to `INGESTION_MAX_ATTEMPTS` (default 5), then stays `failed` with `last_error`. A worker that dies mid-job leaves a lease (`INGESTION_LEASE_SECONDS`, default 300) that runs out, and another worker picks the job up.
 
+## Embeddings
+
+After syncing a source's chunks, the worker gives each chunk a vector, so search can match by meaning, not only by shared words.
+
+- **Model.** [Ollama](https://ollama.com) serves `nomic-embed-text` (open source, 768 dimensions, runs on a CPU) over a local HTTP API: `make ollama` starts it and downloads the model once. No API key or paid account is needed. The app codes against a small `Embedder` interface, so a hosted provider can be added later without touching the worker.
+- **No transaction during model calls.** Embedding happens in batches (`EMBEDDING_BATCH_SIZE`, default 32). Each batch reads its chunks, closes the transaction, calls the model, then writes the vectors in a new short transaction and extends the job's lease. A slow model never holds a database lock, and a failure keeps the batches already written.
+- **Only what changed.** A chunk is embedded when its `embedding_model` differs from `EMBEDDING_MODEL` (including never embedded). Unchanged chunks keep their vectors after an edit. The job's `embedded_count` shows how many went to the model.
+- **Model name per chunk.** Vectors from different models cannot be compared. After changing `EMBEDDING_MODEL`, run `make reembed` to queue every source with old vectors; search must only use chunks whose `embedding_model` matches the current model. A model with a size other than 768 also needs a migration of the `embedding` column.
+- **Outages.** If Ollama is down, jobs retry with the usual backoff and then fail with a message saying how to start it. Once it is back, `make reembed` re-queues whatever is still missing vectors.
+- **Tests** use a deterministic fake embedder, so they never need Ollama or the network.
+
 ## Local
 
 Requires Python 3.12+.
@@ -150,9 +163,10 @@ source .venv/bin/activate
 make install
 cp .env.example .env
 make db        # Postgres and Redis in Docker
+make ollama    # embedding model in Docker (first run downloads ~270 MB)
 make migrate
 make dev        # API
-make worker     # ingestion, in a second terminal
+make worker     # ingestion and embeddings, in a second terminal
 ```
 
 - Liveness: `GET /health`

@@ -104,15 +104,29 @@ async def claim_next(session: AsyncSession, *, lease_seconds: int) -> IngestionJ
     return job
 
 
-async def mark_succeeded(session: AsyncSession, job_id: uuid.UUID, *, chunk_count: int) -> None:
-    """Call in the same transaction as the chunk writes, so the job only shows
-    succeeded if the chunks really were saved."""
+async def extend_lease(session: AsyncSession, job_id: uuid.UUID, *, lease_seconds: int) -> None:
+    """Push the lease forward: "still working on it". The worker calls this after each
+    embedding batch, so a large document can take longer than one lease in total
+    without another worker deciding the job was abandoned and starting it again."""
+    await session.execute(
+        update(IngestionJob)
+        .where(IngestionJob.id == job_id, IngestionJob.status == JobStatus.running.value)
+        .values(locked_until=func.now() + timedelta(seconds=lease_seconds))
+    )
+
+
+async def mark_succeeded(
+    session: AsyncSession, job_id: uuid.UUID, *, chunk_count: int, embedded_count: int
+) -> None:
+    """Call only after every phase finished, so a succeeded job means the source's
+    chunks are written and embedded."""
     await session.execute(
         update(IngestionJob)
         .where(IngestionJob.id == job_id)
         .values(
             status=JobStatus.succeeded.value,
             chunk_count=chunk_count,
+            embedded_count=embedded_count,
             locked_until=None,
             finished_at=func.now(),
             last_error=None,

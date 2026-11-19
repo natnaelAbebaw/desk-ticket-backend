@@ -12,27 +12,16 @@ from datetime import timedelta
 import pytest
 from httpx import AsyncClient
 from sqlalchemy import func, select, update
-from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from app.core.config import Settings, get_settings
+from app.core.config import Settings
+from app.embeddings import FakeEmbedder
 from app.ingestion import jobs, worker
 from app.models.ingestion import IngestionJob, JobStatus, KnowledgeChunk
 
 from helpers import Account, add_member, create_workspace, signup
 
 SECTIONS = "# Setup\nInstall the app.\n\n# Billing\nPay monthly.\n\n# Support\nEmail us."
-
-
-@pytest.fixture
-def factory(engine: AsyncEngine) -> async_sessionmaker[AsyncSession]:
-    return async_sessionmaker(engine, expire_on_commit=False)
-
-
-@pytest.fixture
-def settings() -> Settings:
-    return get_settings().model_copy(
-        update={"ingestion_max_attempts": 3, "ingestion_lease_seconds": 60}
-    )
 
 
 class Desk:
@@ -135,13 +124,16 @@ async def test_repeated_edits_share_one_queued_job(
 
 
 async def test_worker_builds_chunks_and_reports_them(
-    client: AsyncClient, factory: async_sessionmaker[AsyncSession], settings: Settings
+    client: AsyncClient,
+    factory: async_sessionmaker[AsyncSession],
+    settings: Settings,
+    embedder: FakeEmbedder,
 ) -> None:
     desk = await _desk(client)
     doc = await desk.document(desk.owner)
 
-    assert await worker.run_once(factory, settings) is True
-    assert await worker.run_once(factory, settings) is False  # queue is empty now
+    assert await worker.run_once(factory, settings, embedder) is True
+    assert await worker.run_once(factory, settings, embedder) is False  # queue is empty now
 
     chunks = await _chunks(factory, doc["id"])
     assert [c.heading for c in chunks] == ["Guide > Setup", "Guide > Billing", "Guide > Support"]
@@ -159,16 +151,19 @@ async def test_worker_builds_chunks_and_reports_them(
 
 
 async def test_resync_keeps_unchanged_chunks(
-    client: AsyncClient, factory: async_sessionmaker[AsyncSession], settings: Settings
+    client: AsyncClient,
+    factory: async_sessionmaker[AsyncSession],
+    settings: Settings,
+    embedder: FakeEmbedder,
 ) -> None:
     desk = await _desk(client)
     doc = await desk.document(desk.owner)
-    await worker.run_once(factory, settings)
+    await worker.run_once(factory, settings, embedder)
     before = {c.heading: c.id for c in await _chunks(factory, doc["id"])}
 
     edited = SECTIONS.replace("Pay monthly.", "Pay yearly.")
     await desk.call("PATCH", f"/{doc['id']}", {"body": edited})
-    await worker.run_once(factory, settings)
+    await worker.run_once(factory, settings, embedder)
     after = await _chunks(factory, doc["id"])
 
     by_heading = {c.heading: c for c in after}
@@ -182,20 +177,26 @@ async def test_resync_keeps_unchanged_chunks(
 
 
 async def test_archiving_removes_chunks(
-    client: AsyncClient, factory: async_sessionmaker[AsyncSession], settings: Settings
+    client: AsyncClient,
+    factory: async_sessionmaker[AsyncSession],
+    settings: Settings,
+    embedder: FakeEmbedder,
 ) -> None:
     desk = await _desk(client)
     doc = await desk.document(desk.owner)
-    await worker.run_once(factory, settings)
+    await worker.run_once(factory, settings, embedder)
     assert len(await _chunks(factory, doc["id"])) == 3
 
     await desk.call("POST", f"/{doc['id']}/archive")
-    await worker.run_once(factory, settings)
+    await worker.run_once(factory, settings, embedder)
     assert await _chunks(factory, doc["id"]) == []
 
 
 async def test_ticket_answers_are_chunked_after_approval(
-    client: AsyncClient, factory: async_sessionmaker[AsyncSession], settings: Settings
+    client: AsyncClient,
+    factory: async_sessionmaker[AsyncSession],
+    settings: Settings,
+    embedder: FakeEmbedder,
 ) -> None:
     desk = await _desk(client)
     tickets = f"/api/v1/workspaces/{desk.workspace_id}/tickets"
@@ -210,10 +211,10 @@ async def test_ticket_answers_are_chunked_after_approval(
         headers=desk.agent.headers,
     )
     source_id = proposed.json()["id"]
-    assert await worker.run_once(factory, settings) is False  # pending: nothing to do
+    assert await worker.run_once(factory, settings, embedder) is False  # pending: nothing to do
 
     await desk.call("POST", f"/{source_id}/approve")
-    await worker.run_once(factory, settings)
+    await worker.run_once(factory, settings, embedder)
     [chunk] = await _chunks(factory, source_id)
     assert chunk.content == "Question: How do I reset?\n\nAnswer: Use Settings."
 
@@ -273,6 +274,7 @@ async def test_failures_retry_with_backoff_then_give_up(
     factory: async_sessionmaker[AsyncSession],
     settings: Settings,
     monkeypatch: pytest.MonkeyPatch,
+    embedder: FakeEmbedder,
 ) -> None:
     async def broken(session: AsyncSession, source_id: uuid.UUID) -> None:
         raise RuntimeError("parser exploded")
@@ -281,17 +283,17 @@ async def test_failures_retry_with_backoff_then_give_up(
     desk = await _desk(client)
     doc = await desk.document(desk.owner)
 
-    await worker.run_once(factory, settings)
+    await worker.run_once(factory, settings, embedder)
     [job] = await _jobs(factory, doc["id"])
     assert job.status == "queued"
     assert job.attempts == 1
     assert "parser exploded" in (job.last_error or "")
     # Backoff: not due yet, so an immediate run finds nothing.
-    assert await worker.run_once(factory, settings) is False
+    assert await worker.run_once(factory, settings, embedder) is False
 
     for _ in range(settings.ingestion_max_attempts - 1):
         await _make_due(factory)
-        await worker.run_once(factory, settings)
+        await worker.run_once(factory, settings, embedder)
     [job] = await _jobs(factory, doc["id"])
     assert job.status == "failed"
     assert job.attempts == settings.ingestion_max_attempts
@@ -303,6 +305,7 @@ async def test_job_that_keeps_killing_workers_is_abandoned(
     factory: async_sessionmaker[AsyncSession],
     settings: Settings,
     monkeypatch: pytest.MonkeyPatch,
+    embedder: FakeEmbedder,
 ) -> None:
     async def must_not_run(session: AsyncSession, source_id: uuid.UUID) -> None:
         raise AssertionError("an abandoned job must not run again")
@@ -323,7 +326,7 @@ async def test_job_that_keeps_killing_workers_is_abandoned(
         await session.commit()
 
     monkeypatch.setattr(worker, "sync_source", must_not_run)
-    assert await worker.run_once(factory, settings) is True
+    assert await worker.run_once(factory, settings, embedder) is True
     [job] = await _jobs(factory, doc["id"])
     assert job.status == "failed"
     assert "Lease expired" in (job.last_error or "")
@@ -333,6 +336,7 @@ async def test_failed_run_after_an_edit_defers_to_the_newer_job(
     client: AsyncClient,
     factory: async_sessionmaker[AsyncSession],
     settings: Settings,
+    embedder: FakeEmbedder,
 ) -> None:
     desk = await _desk(client)
     doc = await desk.document(desk.owner)
@@ -351,7 +355,7 @@ async def test_failed_run_after_an_edit_defers_to_the_newer_job(
     assert status == "failed"
     assert [j.status for j in await _jobs(factory, doc["id"])] == ["failed", "queued"]
 
-    await worker.run_once(factory, settings)
+    await worker.run_once(factory, settings, embedder)
     [chunk] = await _chunks(factory, doc["id"])
     assert chunk.content == "New text"
 
@@ -365,11 +369,14 @@ def test_backoff_doubles_and_caps() -> None:
 
 
 async def test_outsiders_cannot_read_chunks_or_jobs(
-    client: AsyncClient, factory: async_sessionmaker[AsyncSession], settings: Settings
+    client: AsyncClient,
+    factory: async_sessionmaker[AsyncSession],
+    settings: Settings,
+    embedder: FakeEmbedder,
 ) -> None:
     desk = await _desk(client)
     doc = await desk.document(desk.owner)
-    await worker.run_once(factory, settings)
+    await worker.run_once(factory, settings, embedder)
     other = await _desk(client, slug="globex")
     for path in ("chunks", "ingestion"):
         response = await client.get(f"{desk.url}/{doc['id']}/{path}", headers=other.owner.headers)

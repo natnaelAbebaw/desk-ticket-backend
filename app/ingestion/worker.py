@@ -1,14 +1,19 @@
 """The ingestion worker: `python -m app.ingestion.worker` (or `make worker`).
 
-Runs separately from the API so chunking (and, from milestone 3, slow embedding calls)
-never holds up an HTTP request. Several copies can run at once; SKIP LOCKED in
-jobs.claim_next keeps them from taking the same job.
+Runs separately from the API so chunking and slow embedding calls never hold up an
+HTTP request. Several copies can run at once; SKIP LOCKED in jobs.claim_next keeps
+them from taking the same job.
 
-Each job runs in two transactions:
+Each job goes through these steps, each in its own transaction:
 1. claim: mark the job running and commit, so other workers see it is taken.
-2. work: sync chunks and mark the job succeeded, committed together. If anything
-   fails, the whole second transaction rolls back, so a half-written set of chunks
-   is never visible. The failure is then recorded in a third, separate transaction.
+2. sync: make the chunk rows match the source's text, and commit. All or nothing: a
+   half-written set of chunks is never visible.
+3. embed: give chunks without a current vector one, in batches, committing after each
+   batch and extending the lease each time (app/embeddings/embed.py).
+4. finish: mark the job succeeded.
+If any step fails, the failure is recorded in a separate transaction and the job
+retries. Work already committed (synced rows, embedded batches) is kept, and the retry
+skips it: sync keeps unchanged rows, and embed only picks rows still missing a vector.
 """
 
 import asyncio
@@ -20,6 +25,8 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.core.config import Settings, get_settings
 from app.core.logging import configure_logging
+from app.embeddings import Embedder, build_embedder
+from app.embeddings.embed import embed_source
 from app.ingestion import jobs
 from app.ingestion.sync import sync_source
 from app.models.ingestion import IngestionJob
@@ -28,20 +35,40 @@ logger = logging.getLogger("app.ingestion")
 
 
 async def process(
-    session_factory: async_sessionmaker[AsyncSession], job: IngestionJob, settings: Settings
+    session_factory: async_sessionmaker[AsyncSession],
+    job: IngestionJob,
+    settings: Settings,
+    embedder: Embedder,
 ) -> None:
+    async def still_working(session: AsyncSession) -> None:
+        await jobs.extend_lease(session, job.id, lease_seconds=settings.ingestion_lease_seconds)
+
     try:
         async with session_factory() as session:
             result = await sync_source(session, job.source_id)
-            await jobs.mark_succeeded(session, job.id, chunk_count=result.chunk_count)
+            await session.commit()
+        # Runs for archived sources too: sync just deleted their chunks, so there is
+        # nothing to embed and it returns 0 after one quick query.
+        embedded = await embed_source(
+            session_factory,
+            job.source_id,
+            embedder,
+            batch_size=settings.embedding_batch_size,
+            on_batch=still_working,
+        )
+        async with session_factory() as session:
+            await jobs.mark_succeeded(
+                session, job.id, chunk_count=result.chunk_count, embedded_count=embedded
+            )
             await session.commit()
         logger.info(
-            "ingested source %s: %d chunks (%d added, %d kept, %d removed)",
+            "ingested source %s: %d chunks (%d added, %d kept, %d removed), %d embedded",
             job.source_id,
             result.chunk_count,
             result.added,
             result.kept,
             result.removed,
+            embedded,
         )
     # Deliberately broad: any error in one job must not stop the worker from serving
     # the others. asyncio.CancelledError is a BaseException, so shutdown still works.
@@ -58,7 +85,9 @@ async def process(
         logger.warning("job %s is now %s", job.id, status)
 
 
-async def run_once(session_factory: async_sessionmaker[AsyncSession], settings: Settings) -> bool:
+async def run_once(
+    session_factory: async_sessionmaker[AsyncSession], settings: Settings, embedder: Embedder
+) -> bool:
     """Claim and process one job. Returns False when nothing was due."""
     async with session_factory() as session:
         job = await jobs.claim_next(session, lease_seconds=settings.ingestion_lease_seconds)
@@ -78,16 +107,19 @@ async def run_once(session_factory: async_sessionmaker[AsyncSession], settings: 
             await session.commit()
         logger.error("job %s for source %s abandoned", job.id, job.source_id)
         return True
-    await process(session_factory, job, settings)
+    await process(session_factory, job, settings, embedder)
     return True
 
 
 async def run_forever(
-    session_factory: async_sessionmaker[AsyncSession], settings: Settings, stop: asyncio.Event
+    session_factory: async_sessionmaker[AsyncSession],
+    settings: Settings,
+    embedder: Embedder,
+    stop: asyncio.Event,
 ) -> None:
-    logger.info("ingestion worker started")
+    logger.info("ingestion worker started (embedding model %s)", embedder.model)
     while not stop.is_set():
-        if await run_once(session_factory, settings):
+        if await run_once(session_factory, settings, embedder):
             # Go straight to the next job while there is a backlog.
             continue
         try:
@@ -111,9 +143,12 @@ async def main() -> None:
     # current job finish; the loop exits before claiming the next one.
     for signum in (signal.SIGTERM, signal.SIGINT):
         loop.add_signal_handler(signum, stop.set)
+    # Built once and shared by every job, so its HTTP connection to Ollama is reused.
+    embedder = build_embedder(settings)
     try:
-        await run_forever(SessionLocal, settings, stop)
+        await run_forever(SessionLocal, settings, embedder, stop)
     finally:
+        await embedder.aclose()
         await engine.dispose()
 
 

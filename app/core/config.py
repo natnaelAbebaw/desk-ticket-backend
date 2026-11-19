@@ -24,6 +24,23 @@ class Settings(BaseSettings):
     # second worker will start the same job while the first is still on it.
     ingestion_lease_seconds: int = Field(default=300, ge=10)
     ingestion_max_attempts: int = Field(default=5, ge=1)
+    # Embeddings. See app/embeddings/.
+    # "ollama" runs an open-source model locally over HTTP; "fake" is a deterministic
+    # stand-in for tests that never touches the network.
+    embedding_provider: Literal["ollama", "fake"] = "ollama"
+    # Stored on every chunk it embeds. Changing it makes existing vectors stale; run
+    # `make reembed` afterwards. A model with a different output size also needs a
+    # migration (see EMBEDDING_DIMENSIONS in app/models/ingestion.py).
+    embedding_model: str = "nomic-embed-text"
+    ollama_url: str = "http://localhost:11434"
+    # Texts sent per request. Bigger batches mean fewer round trips but a longer wait
+    # per call and more work lost if one call fails.
+    embedding_batch_size: int = Field(default=32, ge=1, le=512)
+    embedding_timeout_seconds: float = Field(default=60.0, gt=0)
+    # nomic-embed-text was trained with these task prefixes, and retrieval quality drops
+    # without them. Other models use different ones (or none): set both to "" then.
+    embedding_document_prefix: str = "search_document: "
+    embedding_query_prefix: str = "search_query: "
     cors_origins: list[str] = Field(default_factory=lambda: ["http://localhost:3000"])
     log_level: str = "INFO"
     log_json: bool = False
@@ -50,6 +67,9 @@ class Settings(BaseSettings):
             raise ValueError("DEBUG must be false in production")
         if len(self.secret_key) < 32 or self.secret_key.lower() in _WEAK_SECRETS:
             raise ValueError("SECRET_KEY must be a unique value of at least 32 characters")
+        if self.embedding_provider == "fake":
+            # Fake vectors would make search silently return nonsense.
+            raise ValueError("EMBEDDING_PROVIDER=fake is for tests only")
         return self
 
 
