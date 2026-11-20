@@ -13,6 +13,7 @@ from app.core.errors import AppError
 from app.core.redis import get_redis
 from app.core.security import decode_access_token, unauthorized
 from app.db.session import get_db
+from app.embeddings import Embedder
 from app.models.user import User
 from app.models.workspace import WorkspaceMember, WorkspaceRole
 
@@ -65,6 +66,11 @@ def require_role(*roles: WorkspaceRole) -> Callable[..., Awaitable[WorkspaceMemb
         return member
 
     return dependency
+
+
+def get_embedder(request: Request) -> Embedder:
+    """The process-wide embedder built at startup (see lifespan in app/main.py)."""
+    return request.app.state.embedder
 
 
 def _identity(request: Request) -> str:

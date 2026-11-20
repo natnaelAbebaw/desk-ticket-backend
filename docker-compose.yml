@@ -9,6 +9,9 @@ services:
       ENVIRONMENT: local
       DATABASE_URL: postgresql+asyncpg://desk:desk@db:5432/desk
       REDIS_URL: redis://redis:6379/0
+      # Search embeds each question. Not in depends_on: if Ollama is down, hybrid
+      # search falls back to keywords instead of the API failing to start.
+      OLLAMA_URL: http://ollama:11434
       LOG_JSON: "true"
       SECRET_KEY: ${SECRET_KEY:?set SECRET_KEY in .env}
     depends_on:

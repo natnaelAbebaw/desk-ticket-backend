@@ -3,7 +3,19 @@ from datetime import datetime
 from enum import StrEnum
 
 from pgvector.sqlalchemy import Vector
-from sqlalchemy import DateTime, ForeignKey, Index, Integer, String, Text, Uuid, func, text
+from sqlalchemy import (
+    Computed,
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Text,
+    Uuid,
+    func,
+    text,
+)
+from sqlalchemy.dialects.postgresql import TSVECTOR
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -15,6 +27,12 @@ from app.models.timestamps import utcnow
 # changes the column, which is deliberate: vectors of different sizes (or different
 # models) cannot be compared, so the old ones are useless after such a switch anyway.
 EMBEDDING_DIMENSIONS = 768
+
+# The text search configuration: how words are split and reduced to their stem, so
+# "refunds", "refunded" and "refunding" all match "refund", and stop words like "the"
+# are dropped. One fixed language for now; per-workspace languages would need this
+# stored per row. Queries must use the same configuration, so it lives here.
+SEARCH_CONFIG = "english"
 
 
 class KnowledgeChunk(Base):
@@ -34,6 +52,20 @@ class KnowledgeChunk(Base):
         # Every retrieval query filters by workspace first, so workspace_id leads.
         Index("ix_knowledge_chunks_workspace_source", "workspace_id", "source_id"),
         Index("ix_knowledge_chunks_source_position", "source_id", "position"),
+        # GIN is an inverted index: for each word stem, the list of rows containing it.
+        # It makes `search_vector @@ query` fast without scanning every chunk.
+        Index("ix_knowledge_chunks_search_vector", "search_vector", postgresql_using="gin"),
+        # HNSW is pgvector's approximate nearest-neighbour index: a layered graph that
+        # finds close vectors by hopping between neighbours instead of comparing the
+        # query with every row. vector_cosine_ops makes it serve the cosine distance
+        # operator (<=>). A query using a different operator (<-> is L2) would
+        # silently ignore this index and scan the whole table.
+        Index(
+            "ix_knowledge_chunks_embedding_hnsw",
+            "embedding",
+            postgresql_using="hnsw",
+            postgresql_ops={"embedding": "vector_cosine_ops"},
+        ),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
@@ -64,6 +96,20 @@ class KnowledgeChunk(Base):
     # and ignored by search until then.
     embedding_model: Mapped[str | None] = mapped_column(String(100))
     embedded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Keyword search document: the chunk's words, stemmed, with positions. A generated
+    # column, so Postgres computes it on every insert or update and it can never go
+    # out of sync with the text. Heading words get weight A and content words weight
+    # B, so a match in the heading ranks higher. deferred=True leaves it out of normal
+    # SELECTs: only search reads it, and only inside SQL.
+    search_vector: Mapped[str] = mapped_column(
+        TSVECTOR,
+        Computed(
+            f"setweight(to_tsvector('{SEARCH_CONFIG}', heading), 'A') || "
+            f"setweight(to_tsvector('{SEARCH_CONFIG}', content), 'B')",
+            persisted=True,
+        ),
+        deferred=True,
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 

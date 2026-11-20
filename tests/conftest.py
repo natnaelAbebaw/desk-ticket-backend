@@ -43,6 +43,7 @@ from sqlalchemy.ext.asyncio import (
 )
 
 from alembic import command
+from app.api.deps import get_embedder
 from app.core.config import Settings, get_settings
 from app.core.redis import close_redis
 from app.db.base import Base
@@ -93,7 +94,7 @@ async def db_engine(engine: AsyncEngine) -> AsyncEngine:
 
 @pytest_asyncio.fixture
 async def client(
-    monkeypatch: pytest.MonkeyPatch, db_engine: AsyncEngine
+    monkeypatch: pytest.MonkeyPatch, db_engine: AsyncEngine, embedder: FakeEmbedder
 ) -> AsyncIterator[AsyncClient]:
     monkeypatch.setenv("REDIS_URL", "")
     monkeypatch.setenv("SECRET_KEY", "test-secret-key-that-is-at-least-32-chars")
@@ -110,6 +111,10 @@ async def client(
                 raise
 
     app.dependency_overrides[get_db] = override_db
+    # ASGITransport does not run the app's lifespan, so app.state.embedder is never
+    # built in tests. The override hands search the same fake the worker tests use,
+    # so chunk vectors and query vectors come from one model.
+    app.dependency_overrides[get_embedder] = lambda: embedder
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as http:
         yield http

@@ -57,6 +57,7 @@ desk-ticket-backend/
 │   │   └── cache.py         # Cached reads and ticket-list version
 │   ├── ingestion/           # Chunker, Postgres job queue, worker process
 │   ├── embeddings/          # Embedder interface, Ollama and fake embedders, embed phase, backfill
+│   ├── search/              # Keyword, vector, and hybrid (RRF) search
 │   ├── db/
 │   │   ├── base.py          # SQLAlchemy Base
 │   │   └── session.py       # Async engine and get_db
@@ -107,6 +108,7 @@ Health is mounted at the root. Everything else is under `/api/v1`.
 | `POST` | `.../knowledge/{source_id}/approve` | Approve (owner or admin) |
 | `POST` | `.../knowledge/{source_id}/reject` | Reject with a note (owner or admin) |
 | `POST` | `.../knowledge/{source_id}/archive` | Archive (owner or admin) |
+| `POST` | `.../knowledge/search` | Best-matching approved chunks for a question (`mode`: hybrid, keyword, vector) |
 | `GET` | `.../knowledge/{source_id}/chunks` | Chunks built from an approved source, with the model that embedded each |
 | `GET` | `.../knowledge/{source_id}/ingestion` | Latest ingestion job and its status |
 
@@ -152,6 +154,16 @@ After syncing a source's chunks, the worker gives each chunk a vector, so search
 - **Model name per chunk.** Vectors from different models cannot be compared. After changing `EMBEDDING_MODEL`, run `make reembed` to queue every source with old vectors; search must only use chunks whose `embedding_model` matches the current model. A model with a size other than 768 also needs a migration of the `embedding` column.
 - **Outages.** If Ollama is down, jobs retry with the usual backoff and then fail with a message saying how to start it. Once it is back, `make reembed` re-queues whatever is still missing vectors.
 - **Tests** use a deterministic fake embedder, so they never need Ollama or the network.
+
+## Search
+
+`POST /api/v1/workspaces/{workspace_id}/knowledge/search` with `{"query": "...", "mode": "hybrid", "limit": 5}`. Owners, admins, and agents can search; results come only from the caller's workspace.
+
+- **Keyword.** Postgres full-text search over a generated `tsvector` column (GIN index). Words are stemmed (`refunded` matches `refund`), heading matches rank above content matches, and the query accepts search-box syntax: `"exact phrase"`, `or`, `-exclude`. Best for exact terms such as error codes.
+- **Vector.** The question is embedded with the same model as the chunks and compared by cosine distance through an HNSW index. Best for meaning: "get my money back" finds the refund policy. Vector search always returns the nearest chunks, even weak ones; deciding what is too weak to answer from belongs to answer generation.
+- **Hybrid** (default). Both searches return 50 candidates, merged with Reciprocal Rank Fusion: each chunk scores `1/(60 + rank)` per list it appears in, so chunks found by both rise to the top. Each hit includes `keyword_rank` and `vector_rank` to show why it ranked where it did.
+- **Filters in SQL.** Every query requires the caller's workspace, a source that is approved right now (an archived source vanishes from results immediately, before the worker removes its chunks), and, for vectors, the current `EMBEDDING_MODEL`. HNSW iterative scans (pgvector 0.8) keep a small workspace from getting too few results in a large shared table.
+- **Model down.** Hybrid search falls back to keyword results with `"degraded": true`; vector-only search returns `503 embedding_unavailable`.
 
 ## Local
 

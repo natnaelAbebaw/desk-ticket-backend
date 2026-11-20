@@ -1,0 +1,2866 @@
+{
+  "info": {
+    "name": "Desk Ticket (M0-M4)",
+    "description": "Every route built so far. Start: db, redis, ollama, `make migrate`, `make dev`, `make worker`. Then Run collection on folders 0 to 6. Folder 7 is manual.\n\nWrite routes allow 10 requests per minute per user per route; a full run stays under that. Running it twice within a minute can hit 429 on sign-up (limited by IP): wait a minute.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8000"
+    },
+    {
+      "key": "run_id",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "0. Health",
+      "description": "Liveness and readiness. Also starts a new run (fresh emails and slugs).",
+      "item": [
+        {
+          "name": "Health",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// A new run id per run keeps emails and slugs unique across runs.",
+                  "pm.collectionVariables.set(\"run_id\", Date.now().toString(36));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/health"
+          }
+        },
+        {
+          "name": "Ready (db + redis)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/ready"
+          }
+        }
+      ]
+    },
+    {
+      "name": "1. Users and auth",
+      "description": "Sign up the four test users and log each one in.",
+      "item": [
+        {
+          "name": "Sign up owner",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 201\", () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set(\"owner_id\", pm.response.json().id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/users",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"owner+{{run_id}}@acme.test\",\n  \"name\": \"Owner\",\n  \"password\": \"password123\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Log in owner",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set(\"owner_token\", pm.response.json().access_token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/auth/token",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"owner+{{run_id}}@acme.test\",\n  \"password\": \"password123\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Sign up agent",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 201\", () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set(\"agent_id\", pm.response.json().id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/users",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"agent+{{run_id}}@acme.test\",\n  \"name\": \"Agent\",\n  \"password\": \"password123\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Log in agent",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set(\"agent_token\", pm.response.json().access_token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/auth/token",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"agent+{{run_id}}@acme.test\",\n  \"password\": \"password123\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Sign up member",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 201\", () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set(\"member_id\", pm.response.json().id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/users",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"member+{{run_id}}@acme.test\",\n  \"name\": \"Member\",\n  \"password\": \"password123\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Log in member",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set(\"member_token\", pm.response.json().access_token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/auth/token",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"member+{{run_id}}@acme.test\",\n  \"password\": \"password123\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Sign up outsider",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 201\", () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set(\"outsider_id\", pm.response.json().id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/users",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"outsider+{{run_id}}@acme.test\",\n  \"name\": \"Outsider\",\n  \"password\": \"password123\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Log in outsider",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set(\"outsider_token\", pm.response.json().access_token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/auth/token",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"outsider+{{run_id}}@acme.test\",\n  \"password\": \"password123\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Sign up again with the same email -> 409",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 409\", () => pm.response.to.have.status(409));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/users",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"owner+{{run_id}}@acme.test\",\n  \"name\": \"Dup\",\n  \"password\": \"password123\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Log in with a wrong password -> 401",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 401\", () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/auth/token",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"owner+{{run_id}}@acme.test\",\n  \"password\": \"wrong-password\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Sign up with a short password -> 422",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 422\", () => pm.response.to.have.status(422));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/users",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"short+{{run_id}}@acme.test\",\n  \"name\": \"Short\",\n  \"password\": \"123\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Me",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"is the owner\", () => pm.expect(pm.response.json().id === pm.collectionVariables.get(\"owner_id\")).to.be.true);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{owner_token}}"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/users/me"
+          }
+        },
+        {
+          "name": "Me without a token -> 401",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 401\", () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/v1/users/me"
+          }
+        },
+        {
+          "name": "Me with a garbage token -> 401",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 401\", () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{garbage_token}}"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/users/me"
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Workspaces and members",
+      "description": "Acme belongs to the owner. The outsider gets a workspace of their own.",
+      "item": [
+        {
+          "name": "Create workspace (owner)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 201\", () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set(\"workspace_id\", pm.response.json().id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{owner_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Acme\",\n  \"slug\": \"acme-{{run_id}}\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Create workspace with a bad slug -> 422",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 422\", () => pm.response.to.have.status(422));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{owner_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Bad\",\n  \"slug\": \"Not A Slug!\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Create outsider's workspace",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 201\", () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set(\"outsider_workspace_id\", pm.response.json().id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{outsider_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Other Co\",\n  \"slug\": \"other-{{run_id}}\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Add agent as agent",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 201\", () => pm.response.to.have.status(201));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{owner_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/members",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_id\": \"{{agent_id}}\",\n  \"role\": \"agent\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Add member as member",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 201\", () => pm.response.to.have.status(201));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{owner_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/members",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_id\": \"{{member_id}}\",\n  \"role\": \"member\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Member tries to add someone -> 403",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 403\", () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{member_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/members",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_id\": \"{{outsider_id}}\",\n  \"role\": \"member\"\n}"
+            }
+          }
+        },
+        {
+          "name": "List my workspaces",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{owner_token}}"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces"
+          }
+        },
+        {
+          "name": "Get workspace",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{owner_token}}"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces/{{workspace_id}}"
+          }
+        },
+        {
+          "name": "List members",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"owner, agent, member\", () => pm.expect(pm.response.json().total === 3).to.be.true);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{owner_token}}"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/members"
+          }
+        },
+        {
+          "name": "Outsider reads Acme -> 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 404\", () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{outsider_token}}"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces/{{workspace_id}}"
+          }
+        },
+        {
+          "name": "Owner reads the agent (co-member)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{owner_token}}"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/users/{{agent_id}}"
+          }
+        },
+        {
+          "name": "Outsider reads the owner -> 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 404\", () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{outsider_token}}"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/users/{{owner_id}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Tickets",
+      "description": "Create, filter, update, message, and audit a ticket. Ends resolved, so folder 4 can turn it into knowledge.",
+      "item": [
+        {
+          "name": "Create ticket (member)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 201\", () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set(\"ticket_id\", pm.response.json().id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{member_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/tickets",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"subject\": \"Charged twice for my March invoice\",\n  \"description\": \"I see two identical charges on my card for the same invoice.\",\n  \"priority\": \"high\",\n  \"category\": \"billing\"\n}"
+            }
+          }
+        },
+        {
+          "name": "List tickets filtered by billing + high",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"finds it\", () => pm.expect(pm.response.json().total >= 1).to.be.true);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{owner_token}}"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/tickets?category=billing&priority=high"
+          }
+        },
+        {
+          "name": "List tickets with a bad filter -> 422",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 422\", () => pm.response.to.have.status(422));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{owner_token}}"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/tickets?status=lost"
+          }
+        },
+        {
+          "name": "Get ticket",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{owner_token}}"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/tickets/{{ticket_id}}"
+          }
+        },
+        {
+          "name": "Outsider gets ticket -> 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 404\", () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{outsider_token}}"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/tickets/{{ticket_id}}"
+          }
+        },
+        {
+          "name": "Assign to agent, set pending",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{owner_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/tickets/{{ticket_id}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"assigned_to\": \"{{agent_id}}\",\n  \"status\": \"pending\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Agent replies",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 201\", () => pm.response.to.have.status(201));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{agent_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/tickets/{{ticket_id}}/messages",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"body\": \"Thanks, we see the duplicate charge and are refunding one of them.\",\n  \"message_type\": \"reply\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Agent adds an internal note",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 201\", () => pm.response.to.have.status(201));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{agent_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/tickets/{{ticket_id}}/messages",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"body\": \"Webhook retried; escalated to payments with both charge ids.\",\n  \"message_type\": \"internal_note\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Client sends a system message -> 422",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 422\", () => pm.response.to.have.status(422));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{owner_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/tickets/{{ticket_id}}/messages",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"body\": \"spoofed\",\n  \"message_type\": \"system\"\n}"
+            }
+          }
+        },
+        {
+          "name": "List messages",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{owner_token}}"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/tickets/{{ticket_id}}/messages"
+          }
+        },
+        {
+          "name": "Resolve ticket",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"resolved\", () => pm.expect(pm.response.json().status === \"resolved\").to.be.true);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{agent_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/tickets/{{ticket_id}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"resolved\"\n}"
+            }
+          }
+        },
+        {
+          "name": "List events (audit trail)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"has events\", () => pm.expect(pm.response.json().total >= 2).to.be.true);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{owner_token}}"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/tickets/{{ticket_id}}/events"
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Knowledge and ingestion",
+      "description": "Documents and ticket answers, the review flow, and the worker. Needs `make worker` and Ollama running.",
+      "item": [
+        {
+          "name": "Add document: billing-guide (owner)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 201\", () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set(\"billing_id\", pm.response.json().id);",
+                  "pm.test(\"status approved\", () => pm.expect(pm.response.json().status === \"approved\").to.be.true);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{owner_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/knowledge",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Billing guide\",\n  \"body\": \"Acme Billing is the payments product used by all paid workspaces. This guide answers the questions support gets most often.\\n\\n# Plans and pricing\\n\\nAcme has three plans: Free, Team, and Business. Prices are per seat, billed monthly or yearly.\\n\\nYearly billing gives two months free. Switching from monthly to yearly takes effect at the next renewal date.\\n\\n## Changing plans\\n\\nUpgrades apply immediately and the customer is charged a prorated amount for the rest of the billing period.\\n\\nDowngrades apply at the end of the current period. Features from the higher plan stay active until then.\\n\\n# Refunds\\n\\n## Full refunds\\n\\nCustomers can get a full refund within 14 days of their first payment. After 14 days, only partial refunds are possible.\\n\\nTo issue a full refund, open the invoice in the admin panel and click Refund. The money returns to the original card in 5 to 10 business days.\\n\\n## Partial refunds\\n\\nPartial refunds cover unused seats only. They are calculated per day from the date the seat was removed until the end of the billing period. Agents must not promise a partial refund for a downgrade, because downgrades take effect at the end of the period and nothing is unused. If a customer was charged twice for the same invoice, that is not a partial refund case: escalate it to the payments team with the two charge ids, since duplicate charges usually mean a webhook retried and the fix has to happen on the payment provider side as well. Refunds over 500 USD need approval from a team lead before they are issued, and the approval must be noted on the ticket. Refunds can never be sent to a different card than the one that was charged, even if the original card has expired; the bank forwards the money to the replacement card automatically.\\n\\n# Failed payments\\n\\nWhen a card payment fails, Acme retries it after 1, 3, and 7 days. After the third failure the workspace is moved to read-only mode.\\n\\nTo check a failed payment from the command line:\\n\\n```bash\\n# list the last five charges for a workspace\\nacme billing charges --workspace ws_123 --limit 5\\n\\n# retry the most recent failed charge\\nacme billing retry --workspace ws_123\\n```\\n\\n## Read-only mode\\n\\nIn read-only mode users can view tickets but cannot create or reply to them. Paying the open invoice restores full access within a minute.\\n\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Add document: security-policy (owner)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 201\", () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set(\"security_id\", pm.response.json().id);",
+                  "pm.test(\"status approved\", () => pm.expect(pm.response.json().status === \"approved\").to.be.true);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{owner_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/knowledge",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Security policy\",\n  \"body\": \"# Account security policy\\n\\n## Verifying identity\\n\\nBefore changing anything on a customer's account, the agent must confirm that the person writing in is an owner or admin of the workspace. Confirmation means the request comes from the email address on the account, or the customer answers the security question stored in the admin panel, or the customer replies from a verified email to a code the agent sends. A matching name is not enough. A matching company domain is not enough either, because former employees often keep access to old mailboxes for weeks after they leave. If none of the three checks pass, the agent replies that the change cannot be made and explains how an existing owner can make it instead. Agents must never read out, email, or confirm any part of a stored password, recovery code, or API key, not even the last four characters. Agents must never disable two-factor authentication on request; the customer has to use a recovery code, or an existing owner has to remove and re-invite the user. If a customer claims to be locked out of every owner account in the workspace, the ticket goes to the security team with the workspace id and a short summary, and the agent tells the customer that the security team will contact them within one business day. Requests that mention legal action, law enforcement, or a court order are never handled by support; they are forwarded to the legal team unchanged and the agent does not reply with any account details. Agents who suspect an account takeover, for example a sudden change of owner email followed by a request to export all data, freeze the export and escalate to security straight away, even if the request seems to come from a verified address. Every identity check, passed or failed, is recorded as an internal note on the ticket, so that a later reviewer can see which check was used and why the change was or was not made. Agents also must not change the billing email, the workspace name, or the list of owners on the strength of a phone call, because caller id is easy to fake and calls leave no written trail. When a verified owner asks to add a new owner, the agent sends the invite to the new person's address and never shares an invite link in the ticket thread itself. If the customer pushes back on any of these checks, the agent explains that the checks protect the customer's own data, and does not make an exception, even for large accounts or urgent requests. Exceptions are only possible with written approval from the security team, and that approval is pasted into the ticket as an internal note before the change is made.\\n\\n## Reporting a breach\\n\\nIf an agent believes customer data was exposed, they stop work on the ticket and page the on-call security engineer. They do not tell the customer anything about a possible breach until security has confirmed what happened.\\n\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Add document: api-quickstart (owner)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 201\", () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set(\"api_id\", pm.response.json().id);",
+                  "pm.test(\"status approved\", () => pm.expect(pm.response.json().status === \"approved\").to.be.true);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{owner_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/knowledge",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Api quickstart\",\n  \"body\": \"This page shows how to call the Acme API from a script.\\n\\n# Authentication\\n\\nEvery request needs an API key in the Authorization header. Create keys under Settings > API keys. A key belongs to one workspace and can be revoked at any time.\\n\\n```bash\\n# Keys start with ak_ and are shown only once, so store yours right away.\\nexport ACME_KEY=ak_live_example\\n\\ncurl https://api.acme.example/v1/me \\\\\\n  -H \\\"Authorization: Bearer $ACME_KEY\\\"\\n```\\n\\n# Listing invoices\\n\\n```python\\n# The client pages through results for you.\\nimport acme\\n\\nclient = acme.Client(api_key=\\\"ak_live_example\\\")\\n\\n# Only invoices from the workspace that owns the key are returned.\\nfor invoice in client.invoices.list(status=\\\"open\\\"):\\n    print(invoice.id, invoice.amount_due)\\n```\\n\\nThe response includes at most 100 invoices per page. Pass `starting_after` with the last id to fetch the next page.\\n\\n## Errors\\n\\n| Status | Meaning | What to do |\\n|--------|---------|------------|\\n| 401 | Missing or revoked key | Create a new key |\\n| 404 | Invoice is in another workspace | Check which key you used |\\n| 429 | Too many requests | Wait for the Retry-After seconds |\\n\\n#Not a heading, because there is no space after the hash.\\n\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Add document: onboarding-handbook (agent)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 201\", () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set(\"onboarding_id\", pm.response.json().id);",
+                  "pm.test(\"status pending_review\", () => pm.expect(pm.response.json().status === \"pending_review\").to.be.true);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{agent_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/knowledge",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Onboarding handbook\",\n  \"body\": \"Welcome to the support team. Read this handbook in your first week; your lead will walk through it with you on day three.\\n\\n# Your first week\\n\\n**Day one.** You get access to the desk, the admin panel, and the team chat on your first morning. If any of the three does not work by noon, tell your lead, because the access request has to be approved by IT before the end of the day or it waits until the next weekly batch.\\n\\nSpend the afternoon reading closed tickets from the last month. Pick tickets with the tags billing, login, and integrations, since those three tags make up most of the queue. Do not reply to any open tickets yet, even simple ones; customers see the name of whoever replies first, and the first reply sets their expectations for the whole conversation.\\n\\nWrite down every question you have while reading. Nothing is too small. Most questions new agents ask on day one are already answered in the knowledge base, and finding those answers is the fastest way to learn where things live.\\n\\nAt the end of the day, send your list of questions to your lead. They will mark the ones that are answered in the knowledge base so you can look them up, and answer the rest in your day two meeting.\\n\\n**Day two.** On day two you shadow an experienced agent for the whole morning. Sit next to them, or join their screen share if you are remote. Watch how they read a ticket before replying: they check the customer's plan, the last three tickets from the same workspace, and any open incidents, before they type a single word.\\n\\nAsk them why they chose each reply. Good agents often skip a step from the handbook on purpose, and the reason is usually more useful than the step itself. Note those reasons down; they become the edge cases you will meet later.\\n\\nAfter lunch you draft replies to five open tickets, but you do not send them. Your shadow reviews each draft with you and either sends it as written, edits it, or explains why a different reply is better.\\n\\nFinish the day by tagging twenty closed tickets that are missing tags. Tagging trains you to recognize ticket types quickly, which is what makes triage fast later.\\n\\n**Day three.** Day three is your first day on the live queue, with a cap of ten tickets. Your lead reviews every reply you send that day within an hour of sending it.\\n\\nPick tickets from the top of the queue in order. Do not skip a ticket because it looks hard; flag it for your lead instead, and they will either take it or pair with you on it.\\n\\nIf a customer is angry, acknowledge the problem in the first sentence, say what you will do next, and give a time when they will hear back. Never promise a refund, a credit, or a fix date that is not already confirmed in the ticket or the knowledge base.\\n\\nAt the end of day three you and your lead review all ten tickets together. Expect most of the feedback to be about tone and about asking for missing information up front, rather than about product knowledge.\\n\\n# Escalation\\n\\nEscalate a ticket when it needs someone with more access, more authority, or more product knowledge than you have. Escalating early is always better than guessing.\\n\\nUse the Escalate button, not a chat message. The button records who escalated, when, and why, and the ticket keeps its place in the queue's response time reporting.\\n\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Member adds a document -> 403",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 403\", () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{member_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/knowledge",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"x\",\n  \"body\": \"x\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Propose answer from the resolved ticket (agent)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 201\", () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set(\"answer_id\", pm.response.json().id);",
+                  "pm.test(\"needs review\", () => pm.expect(pm.response.json().status === \"pending_review\").to.be.true);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{agent_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/tickets/{{ticket_id}}/knowledge",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Customer charged twice for the same invoice\",\n  \"question\": \"A customer sees two identical charges for one invoice. What do we do?\",\n  \"body\": \"Duplicate charges come from a payment webhook retry. Refund the second charge in full from the admin panel, then send both charge ids to the payments team so the provider side is fixed too. Tell the customer the money returns in 5 to 10 business days.\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Agent approves -> 403",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 403\", () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{agent_token}}"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/knowledge/{{answer_id}}/approve"
+          }
+        },
+        {
+          "name": "Owner approves the ticket answer",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{owner_token}}"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/knowledge/{{answer_id}}/approve"
+          }
+        },
+        {
+          "name": "Owner rejects the onboarding draft",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"rejected\", () => pm.expect(pm.response.json().status === \"rejected\").to.be.true);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{owner_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/knowledge/{{onboarding_id}}/reject",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"note\": \"Please add the escalation contacts before we publish.\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Agent edits the rejected draft -> back to review",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"pending again\", () => pm.expect(pm.response.json().status === \"pending_review\").to.be.true);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{agent_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/knowledge/{{onboarding_id}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Onboarding handbook (v2)\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Owner approves onboarding",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{owner_token}}"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/knowledge/{{onboarding_id}}/approve"
+          }
+        },
+        {
+          "name": "Approve twice -> 409",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 409\", () => pm.response.to.have.status(409));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{owner_token}}"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/knowledge/{{onboarding_id}}/approve"
+          }
+        },
+        {
+          "name": "List knowledge (approved only)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{owner_token}}"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/knowledge?status=approved"
+          }
+        },
+        {
+          "name": "List knowledge as member -> 403",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 403\", () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{member_token}}"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/knowledge"
+          }
+        },
+        {
+          "name": "Get billing guide",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{owner_token}}"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/knowledge/{{billing_id}}"
+          }
+        },
+        {
+          "name": "Wait for billing ingestion",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (Number(pm.collectionVariables.get(\"retries_billing_id\") || 0) > 0) {",
+                  "  setTimeout(() => {}, 1000);",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const job = pm.response.json();",
+                  "const tries = Number(pm.collectionVariables.get(\"retries_billing_id\") || 0);",
+                  "if (job && (job.status === \"queued\" || job.status === \"running\") && tries < 30) {",
+                  "  pm.collectionVariables.set(\"retries_billing_id\", tries + 1);",
+                  "  postman.setNextRequest(pm.info.requestName);",
+                  "  return;",
+                  "}",
+                  "pm.collectionVariables.set(\"retries_billing_id\", 0);",
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"worker succeeded (is `make worker` running?)\", () => pm.expect(job && job.status, job && job.last_error).to.eql(\"succeeded\"));",
+                  "pm.test(\"every chunk got a vector\", () => pm.expect(job.embedded_count === job.chunk_count).to.be.true);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{owner_token}}"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/knowledge/{{billing_id}}/ingestion",
+            "description": "Poll the source's ingestion job until the worker finishes.\n\nChunking and embedding run in the worker, not in the request, so search right after\napproval would find nothing. In the Collection Runner this request repeats itself\n(setNextRequest with its own name) once a second, up to 30 times. Sent by hand, just\nclick Send again until status is succeeded.\n"
+          }
+        },
+        {
+          "name": "Wait for security ingestion",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (Number(pm.collectionVariables.get(\"retries_security_id\") || 0) > 0) {",
+                  "  setTimeout(() => {}, 1000);",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const job = pm.response.json();",
+                  "const tries = Number(pm.collectionVariables.get(\"retries_security_id\") || 0);",
+                  "if (job && (job.status === \"queued\" || job.status === \"running\") && tries < 30) {",
+                  "  pm.collectionVariables.set(\"retries_security_id\", tries + 1);",
+                  "  postman.setNextRequest(pm.info.requestName);",
+                  "  return;",
+                  "}",
+                  "pm.collectionVariables.set(\"retries_security_id\", 0);",
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"worker succeeded (is `make worker` running?)\", () => pm.expect(job && job.status, job && job.last_error).to.eql(\"succeeded\"));",
+                  "pm.test(\"every chunk got a vector\", () => pm.expect(job.embedded_count === job.chunk_count).to.be.true);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{owner_token}}"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/knowledge/{{security_id}}/ingestion",
+            "description": "Poll the source's ingestion job until the worker finishes.\n\nChunking and embedding run in the worker, not in the request, so search right after\napproval would find nothing. In the Collection Runner this request repeats itself\n(setNextRequest with its own name) once a second, up to 30 times. Sent by hand, just\nclick Send again until status is succeeded.\n"
+          }
+        },
+        {
+          "name": "Wait for api ingestion",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (Number(pm.collectionVariables.get(\"retries_api_id\") || 0) > 0) {",
+                  "  setTimeout(() => {}, 1000);",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const job = pm.response.json();",
+                  "const tries = Number(pm.collectionVariables.get(\"retries_api_id\") || 0);",
+                  "if (job && (job.status === \"queued\" || job.status === \"running\") && tries < 30) {",
+                  "  pm.collectionVariables.set(\"retries_api_id\", tries + 1);",
+                  "  postman.setNextRequest(pm.info.requestName);",
+                  "  return;",
+                  "}",
+                  "pm.collectionVariables.set(\"retries_api_id\", 0);",
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"worker succeeded (is `make worker` running?)\", () => pm.expect(job && job.status, job && job.last_error).to.eql(\"succeeded\"));",
+                  "pm.test(\"every chunk got a vector\", () => pm.expect(job.embedded_count === job.chunk_count).to.be.true);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{owner_token}}"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/knowledge/{{api_id}}/ingestion",
+            "description": "Poll the source's ingestion job until the worker finishes.\n\nChunking and embedding run in the worker, not in the request, so search right after\napproval would find nothing. In the Collection Runner this request repeats itself\n(setNextRequest with its own name) once a second, up to 30 times. Sent by hand, just\nclick Send again until status is succeeded.\n"
+          }
+        },
+        {
+          "name": "Wait for onboarding ingestion",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (Number(pm.collectionVariables.get(\"retries_onboarding_id\") || 0) > 0) {",
+                  "  setTimeout(() => {}, 1000);",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const job = pm.response.json();",
+                  "const tries = Number(pm.collectionVariables.get(\"retries_onboarding_id\") || 0);",
+                  "if (job && (job.status === \"queued\" || job.status === \"running\") && tries < 30) {",
+                  "  pm.collectionVariables.set(\"retries_onboarding_id\", tries + 1);",
+                  "  postman.setNextRequest(pm.info.requestName);",
+                  "  return;",
+                  "}",
+                  "pm.collectionVariables.set(\"retries_onboarding_id\", 0);",
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"worker succeeded (is `make worker` running?)\", () => pm.expect(job && job.status, job && job.last_error).to.eql(\"succeeded\"));",
+                  "pm.test(\"every chunk got a vector\", () => pm.expect(job.embedded_count === job.chunk_count).to.be.true);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{owner_token}}"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/knowledge/{{onboarding_id}}/ingestion",
+            "description": "Poll the source's ingestion job until the worker finishes.\n\nChunking and embedding run in the worker, not in the request, so search right after\napproval would find nothing. In the Collection Runner this request repeats itself\n(setNextRequest with its own name) once a second, up to 30 times. Sent by hand, just\nclick Send again until status is succeeded.\n"
+          }
+        },
+        {
+          "name": "Wait for ticket answer ingestion",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (Number(pm.collectionVariables.get(\"retries_answer_id\") || 0) > 0) {",
+                  "  setTimeout(() => {}, 1000);",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const job = pm.response.json();",
+                  "const tries = Number(pm.collectionVariables.get(\"retries_answer_id\") || 0);",
+                  "if (job && (job.status === \"queued\" || job.status === \"running\") && tries < 30) {",
+                  "  pm.collectionVariables.set(\"retries_answer_id\", tries + 1);",
+                  "  postman.setNextRequest(pm.info.requestName);",
+                  "  return;",
+                  "}",
+                  "pm.collectionVariables.set(\"retries_answer_id\", 0);",
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"worker succeeded (is `make worker` running?)\", () => pm.expect(job && job.status, job && job.last_error).to.eql(\"succeeded\"));",
+                  "pm.test(\"every chunk got a vector\", () => pm.expect(job.embedded_count === job.chunk_count).to.be.true);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{owner_token}}"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/knowledge/{{answer_id}}/ingestion",
+            "description": "Poll the source's ingestion job until the worker finishes.\n\nChunking and embedding run in the worker, not in the request, so search right after\napproval would find nothing. In the Collection Runner this request repeats itself\n(setNextRequest with its own name) once a second, up to 30 times. Sent by hand, just\nclick Send again until status is succeeded.\n"
+          }
+        },
+        {
+          "name": "Billing chunks (with embedding model)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"has chunks\", () => pm.expect(pm.response.json().total > 0).to.be.true);",
+                  "pm.test(\"all embedded\", () => pm.expect(pm.response.json().items.every(c => c.embedding_model && c.embedded_at)).to.be.true);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{owner_token}}"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/knowledge/{{billing_id}}/chunks"
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. Search",
+      "description": "Keyword, vector, and hybrid. Open the Postman Console to see each result table. Tests marked 'mentions' are relevance checks: real embeddings decide them.",
+      "item": [
+        {
+          "name": "keyword: exact token ws_123",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "",
+                  "const body = pm.response.json();",
+                  "console.log(pm.info.requestName, body.degraded ? \"(DEGRADED)\" : \"\");",
+                  "console.table((body.hits || []).map(h => ({",
+                  "  source: h.source_title, heading: h.heading, score: h.score.toFixed(3),",
+                  "  kw: h.keyword_rank, vec: h.vector_rank,",
+                  "})));",
+                  "const text = (h) => (h.heading + \" \" + h.content).toLowerCase();",
+                  "pm.test(\"found\", () => pm.expect(body.hits.length > 0).to.be.true);",
+                  "pm.test(\"one of the top 1 hits mentions \\\"ws_123\\\"\", () => pm.expect(body.hits.slice(0, 1).some(h => text(h).includes(\"ws_123\"))).to.be.true);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{owner_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/knowledge/search",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"ws_123\",\n  \"mode\": \"keyword\",\n  \"limit\": 5\n}"
+            }
+          }
+        },
+        {
+          "name": "keyword: stemming (refunded -> refund)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "",
+                  "const body = pm.response.json();",
+                  "console.log(pm.info.requestName, body.degraded ? \"(DEGRADED)\" : \"\");",
+                  "console.table((body.hits || []).map(h => ({",
+                  "  source: h.source_title, heading: h.heading, score: h.score.toFixed(3),",
+                  "  kw: h.keyword_rank, vec: h.vector_rank,",
+                  "})));",
+                  "const text = (h) => (h.heading + \" \" + h.content).toLowerCase();",
+                  "pm.test(\"one of the top 1 hits mentions \\\"refund\\\"\", () => pm.expect(body.hits.slice(0, 1).some(h => text(h).includes(\"refund\"))).to.be.true);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{owner_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/knowledge/search",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"refunded\",\n  \"mode\": \"keyword\",\n  \"limit\": 5\n}"
+            }
+          }
+        },
+        {
+          "name": "keyword: no shared words -> few or none",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "",
+                  "const body = pm.response.json();",
+                  "console.log(pm.info.requestName, body.degraded ? \"(DEGRADED)\" : \"\");",
+                  "console.table((body.hits || []).map(h => ({",
+                  "  source: h.source_title, heading: h.heading, score: h.score.toFixed(3),",
+                  "  kw: h.keyword_rank, vec: h.vector_rank,",
+                  "})));",
+                  "const text = (h) => (h.heading + \" \" + h.content).toLowerCase();",
+                  "console.log(\"Keyword search needs the words themselves; compare with vector next.\");"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{owner_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/knowledge/search",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"how do I get my money back\",\n  \"mode\": \"keyword\",\n  \"limit\": 5\n}"
+            }
+          }
+        },
+        {
+          "name": "vector: money back -> refunds (meaning)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "",
+                  "const body = pm.response.json();",
+                  "console.log(pm.info.requestName, body.degraded ? \"(DEGRADED)\" : \"\");",
+                  "console.table((body.hits || []).map(h => ({",
+                  "  source: h.source_title, heading: h.heading, score: h.score.toFixed(3),",
+                  "  kw: h.keyword_rank, vec: h.vector_rank,",
+                  "})));",
+                  "const text = (h) => (h.heading + \" \" + h.content).toLowerCase();",
+                  "pm.test(\"one of the top 3 hits mentions \\\"refund\\\"\", () => pm.expect(body.hits.slice(0, 3).some(h => text(h).includes(\"refund\"))).to.be.true);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{owner_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/knowledge/search",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"how do I get my money back\",\n  \"mode\": \"vector\",\n  \"limit\": 5\n}"
+            }
+          }
+        },
+        {
+          "name": "vector: card declined -> failed payments",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "",
+                  "const body = pm.response.json();",
+                  "console.log(pm.info.requestName, body.degraded ? \"(DEGRADED)\" : \"\");",
+                  "console.table((body.hits || []).map(h => ({",
+                  "  source: h.source_title, heading: h.heading, score: h.score.toFixed(3),",
+                  "  kw: h.keyword_rank, vec: h.vector_rank,",
+                  "})));",
+                  "const text = (h) => (h.heading + \" \" + h.content).toLowerCase();",
+                  "pm.test(\"one of the top 3 hits mentions \\\"fail\\\"\", () => pm.expect(body.hits.slice(0, 3).some(h => text(h).includes(\"fail\"))).to.be.true);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{owner_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/knowledge/search",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"my card keeps getting declined\",\n  \"mode\": \"vector\",\n  \"limit\": 5\n}"
+            }
+          }
+        },
+        {
+          "name": "vector: data leak -> breach policy",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "",
+                  "const body = pm.response.json();",
+                  "console.log(pm.info.requestName, body.degraded ? \"(DEGRADED)\" : \"\");",
+                  "console.table((body.hits || []).map(h => ({",
+                  "  source: h.source_title, heading: h.heading, score: h.score.toFixed(3),",
+                  "  kw: h.keyword_rank, vec: h.vector_rank,",
+                  "})));",
+                  "const text = (h) => (h.heading + \" \" + h.content).toLowerCase();",
+                  "pm.test(\"one of the top 3 hits mentions \\\"breach\\\"\", () => pm.expect(body.hits.slice(0, 3).some(h => text(h).includes(\"breach\"))).to.be.true);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{owner_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/knowledge/search",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"someone leaked our customer data\",\n  \"mode\": \"vector\",\n  \"limit\": 5\n}"
+            }
+          }
+        },
+        {
+          "name": "hybrid: too many requests -> API errors",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "",
+                  "const body = pm.response.json();",
+                  "console.log(pm.info.requestName, body.degraded ? \"(DEGRADED)\" : \"\");",
+                  "console.table((body.hits || []).map(h => ({",
+                  "  source: h.source_title, heading: h.heading, score: h.score.toFixed(3),",
+                  "  kw: h.keyword_rank, vec: h.vector_rank,",
+                  "})));",
+                  "const text = (h) => (h.heading + \" \" + h.content).toLowerCase();",
+                  "pm.test(\"one of the top 3 hits mentions \\\"429\\\"\", () => pm.expect(body.hits.slice(0, 3).some(h => text(h).includes(\"429\"))).to.be.true);",
+                  "pm.test(\"not degraded\", () => pm.expect(body.degraded === false).to.be.true);",
+                  "pm.test(\"scores are RRF (below 2/61)\", () => pm.expect(body.hits.every(h => h.score <= 2/61 + 1e-9)).to.be.true);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{owner_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/knowledge/search",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"too many requests error\",\n  \"mode\": \"hybrid\",\n  \"limit\": 5\n}"
+            }
+          }
+        },
+        {
+          "name": "hybrid: charged twice -> ticket answer",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "",
+                  "const body = pm.response.json();",
+                  "console.log(pm.info.requestName, body.degraded ? \"(DEGRADED)\" : \"\");",
+                  "console.table((body.hits || []).map(h => ({",
+                  "  source: h.source_title, heading: h.heading, score: h.score.toFixed(3),",
+                  "  kw: h.keyword_rank, vec: h.vector_rank,",
+                  "})));",
+                  "const text = (h) => (h.heading + \" \" + h.content).toLowerCase();",
+                  "pm.test(\"one of the top 3 hits mentions \\\"charge\\\"\", () => pm.expect(body.hits.slice(0, 3).some(h => text(h).includes(\"charge\"))).to.be.true);",
+                  "pm.test(\"answer_id in hits\", () => pm.expect(body.hits.some(",
+                  "  h => h.source_id === pm.collectionVariables.get(\"answer_id\"))).to.be.true);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{owner_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/knowledge/search",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"customer charged twice for one invoice\",\n  \"mode\": \"hybrid\",\n  \"limit\": 5\n}"
+            }
+          }
+        },
+        {
+          "name": "keyword: excluded word (refund -partial)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "",
+                  "const body = pm.response.json();",
+                  "console.log(pm.info.requestName, body.degraded ? \"(DEGRADED)\" : \"\");",
+                  "console.table((body.hits || []).map(h => ({",
+                  "  source: h.source_title, heading: h.heading, score: h.score.toFixed(3),",
+                  "  kw: h.keyword_rank, vec: h.vector_rank,",
+                  "})));",
+                  "const text = (h) => (h.heading + \" \" + h.content).toLowerCase();",
+                  "pm.test(\"no hit mentions partial\", () => pm.expect(body.hits.every(h => !text(h).includes(\"partial\"))).to.be.true);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{owner_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/knowledge/search",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"refund -partial\",\n  \"mode\": \"keyword\",\n  \"limit\": 5\n}"
+            }
+          }
+        },
+        {
+          "name": "vector: nonsense still returns hits (no cutoff yet)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "",
+                  "const body = pm.response.json();",
+                  "console.log(pm.info.requestName, body.degraded ? \"(DEGRADED)\" : \"\");",
+                  "console.table((body.hits || []).map(h => ({",
+                  "  source: h.source_title, heading: h.heading, score: h.score.toFixed(3),",
+                  "  kw: h.keyword_rank, vec: h.vector_rank,",
+                  "})));",
+                  "const text = (h) => (h.heading + \" \" + h.content).toLowerCase();",
+                  "console.log(\"Note these low scores: milestone 5 measures a sensible cutoff.\");"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{owner_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/knowledge/search",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"banana bread recipe\",\n  \"mode\": \"vector\",\n  \"limit\": 5\n}"
+            }
+          }
+        },
+        {
+          "name": "limit 1",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "",
+                  "const body = pm.response.json();",
+                  "console.log(pm.info.requestName, body.degraded ? \"(DEGRADED)\" : \"\");",
+                  "console.table((body.hits || []).map(h => ({",
+                  "  source: h.source_title, heading: h.heading, score: h.score.toFixed(3),",
+                  "  kw: h.keyword_rank, vec: h.vector_rank,",
+                  "})));",
+                  "const text = (h) => (h.heading + \" \" + h.content).toLowerCase();",
+                  "pm.test(\"exactly one\", () => pm.expect(body.hits.length === 1).to.be.true);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{owner_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/knowledge/search",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"refund\",\n  \"mode\": \"hybrid\",\n  \"limit\": 1\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "6. Search: tenants, roles, archive, validation",
+      "description": "The rules that keep search safe, plus the archive check.",
+      "item": [
+        {
+          "name": "Outsider searches their own empty workspace -> no Acme chunks",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "",
+                  "const body = pm.response.json();",
+                  "console.log(pm.info.requestName, body.degraded ? \"(DEGRADED)\" : \"\");",
+                  "console.table((body.hits || []).map(h => ({",
+                  "  source: h.source_title, heading: h.heading, score: h.score.toFixed(3),",
+                  "  kw: h.keyword_rank, vec: h.vector_rank,",
+                  "})));",
+                  "const text = (h) => (h.heading + \" \" + h.content).toLowerCase();",
+                  "pm.test(\"zero hits\", () => pm.expect(body.hits.length === 0).to.be.true);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{outsider_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces/{{outsider_workspace_id}}/knowledge/search",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"refund\",\n  \"mode\": \"hybrid\",\n  \"limit\": 5\n}"
+            }
+          }
+        },
+        {
+          "name": "Outsider searches Acme -> 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 404\", () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{outsider_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/knowledge/search",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"refund\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Member searches -> 403",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 403\", () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{member_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/knowledge/search",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"refund\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Agent searches -> 200",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{agent_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/knowledge/search",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"refund\"\n}"
+            }
+          }
+        },
+        {
+          "name": "No token -> 401",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 401\", () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/knowledge/search",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"refund\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Validation: empty query -> 422",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 422\", () => pm.response.to.have.status(422));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{owner_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/knowledge/search",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Validation: query over 1000 chars -> 422",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 422\", () => pm.response.to.have.status(422));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{owner_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/knowledge/search",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Validation: limit 0 -> 422",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 422\", () => pm.response.to.have.status(422));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{owner_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/knowledge/search",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"refund\",\n  \"limit\": 0\n}"
+            }
+          }
+        },
+        {
+          "name": "Validation: limit 21 -> 422",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 422\", () => pm.response.to.have.status(422));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{owner_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/knowledge/search",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"refund\",\n  \"limit\": 21\n}"
+            }
+          }
+        },
+        {
+          "name": "Validation: unknown mode -> 422",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 422\", () => pm.response.to.have.status(422));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{owner_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/knowledge/search",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"refund\",\n  \"mode\": \"fuzzy\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Before archive: API doc is found",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "",
+                  "const body = pm.response.json();",
+                  "console.log(pm.info.requestName, body.degraded ? \"(DEGRADED)\" : \"\");",
+                  "console.table((body.hits || []).map(h => ({",
+                  "  source: h.source_title, heading: h.heading, score: h.score.toFixed(3),",
+                  "  kw: h.keyword_rank, vec: h.vector_rank,",
+                  "})));",
+                  "const text = (h) => (h.heading + \" \" + h.content).toLowerCase();",
+                  "pm.test(\"api_id in hits\", () => pm.expect(body.hits.some(",
+                  "  h => h.source_id === pm.collectionVariables.get(\"api_id\"))).to.be.true);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{owner_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/knowledge/search",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"invoices per page\",\n  \"mode\": \"keyword\",\n  \"limit\": 5\n}"
+            }
+          }
+        },
+        {
+          "name": "Archive the API doc",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"archived\", () => pm.expect(pm.response.json().status === \"archived\").to.be.true);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{owner_token}}"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/knowledge/{{api_id}}/archive"
+          }
+        },
+        {
+          "name": "After archive: API doc is gone immediately",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "",
+                  "const body = pm.response.json();",
+                  "console.log(pm.info.requestName, body.degraded ? \"(DEGRADED)\" : \"\");",
+                  "console.table((body.hits || []).map(h => ({",
+                  "  source: h.source_title, heading: h.heading, score: h.score.toFixed(3),",
+                  "  kw: h.keyword_rank, vec: h.vector_rank,",
+                  "})));",
+                  "const text = (h) => (h.heading + \" \" + h.content).toLowerCase();",
+                  "pm.test(\"api_id not in hits\", () => pm.expect(body.hits.some(",
+                  "  h => h.source_id === pm.collectionVariables.get(\"api_id\"))).to.be.false);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{owner_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/knowledge/search",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"invoices per page\",\n  \"mode\": \"keyword\",\n  \"limit\": 5\n}"
+            }
+          }
+        },
+        {
+          "name": "Edit an archived doc -> 409",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 409\", () => pm.response.to.have.status(409));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{owner_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/knowledge/{{api_id}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"too late\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "7. Manual: Ollama down",
+      "description": "Not part of a normal run. First run `sudo docker compose stop ollama`, then send these two by hand. Afterwards: `sudo docker compose start ollama`.",
+      "item": [
+        {
+          "name": "Hybrid with Ollama down -> degraded keyword results",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "",
+                  "const body = pm.response.json();",
+                  "console.log(pm.info.requestName, body.degraded ? \"(DEGRADED)\" : \"\");",
+                  "console.table((body.hits || []).map(h => ({",
+                  "  source: h.source_title, heading: h.heading, score: h.score.toFixed(3),",
+                  "  kw: h.keyword_rank, vec: h.vector_rank,",
+                  "})));",
+                  "const text = (h) => (h.heading + \" \" + h.content).toLowerCase();",
+                  "pm.test(\"degraded\", () => pm.expect(body.degraded === true).to.be.true);",
+                  "pm.test(\"keyword ranks only\", () => pm.expect(body.hits.every(h => h.vector_rank === null)).to.be.true);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{owner_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/knowledge/search",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"refund\",\n  \"mode\": \"hybrid\",\n  \"limit\": 5\n}"
+            }
+          }
+        },
+        {
+          "name": "Vector with Ollama down -> 503",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 503\", () => pm.response.to.have.status(503));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{owner_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/knowledge/search",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"refund\",\n  \"mode\": \"vector\"\n}"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

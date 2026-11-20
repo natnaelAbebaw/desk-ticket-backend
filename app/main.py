@@ -18,6 +18,7 @@ from app.core.logging import configure_logging, request_id_ctx
 from app.core.middleware import RequestContextMiddleware
 from app.core.redis import close_redis, init_redis
 from app.db.session import engine
+from app.embeddings import build_embedder
 
 logger = logging.getLogger(__name__)
 
@@ -29,10 +30,15 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     redoc_url = None if settings.environment == "production" else "/redoc"
 
     @asynccontextmanager
-    async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+    async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         logger.info("starting %s (%s)", settings.app_name, settings.environment)
         await init_redis(get_settings().redis_url)
+        # One embedder for the whole process, kept on app.state: its HTTP client
+        # reuses connections to the model server across requests. Search reaches it
+        # through the get_embedder dependency, which tests override with a fake.
+        app.state.embedder = build_embedder(settings)
         yield
+        await app.state.embedder.aclose()
         await close_redis()
         await engine.dispose()
 
