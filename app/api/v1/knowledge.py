@@ -14,8 +14,10 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import rate_limit_default, rate_limit_writes, require_role
+from app.api.deps import get_embedder, rate_limit_default, rate_limit_writes, require_role
+from app.core.errors import AppError
 from app.db.session import get_db
+from app.embeddings import Embedder
 from app.ingestion import jobs as ingestion_jobs
 from app.models.ingestion import KnowledgeChunk
 from app.models.knowledge import KnowledgeKind, KnowledgeStatus
@@ -30,6 +32,8 @@ from app.schemas.knowledge import (
     KnowledgeUpdate,
     TicketAnswerCreate,
 )
+from app.schemas.search import SearchHitRead, SearchRequest, SearchResponse
+from app.search import service as search_service
 from app.services import knowledge as knowledge_service
 
 # Permission aliases. Declaring a parameter with one of these types runs, in order:
@@ -96,6 +100,40 @@ async def list_knowledge(
         total=total,
         limit=limit,
         offset=offset,
+    )
+
+
+# Declared before the /{source_id} routes. Only GET and PATCH use that bare path, so a
+# POST could not be mistaken for one anyway, but keeping fixed paths first avoids
+# surprises if a POST /{source_id} is ever added.
+@router.post("/search", response_model=SearchResponse)
+async def search_knowledge(
+    payload: SearchRequest,
+    editor: KnowledgeEditor,
+    session: AsyncSession = Depends(get_db),
+    embedder: Embedder = Depends(get_embedder),
+) -> SearchResponse:
+    """Find the approved chunks that best match a question, in this workspace only.
+
+    POST rather than GET: the question can be long and may quote a customer, and
+    query strings end up in access logs and browser history.
+    """
+    try:
+        result = await search_service.search(
+            session,
+            embedder,
+            workspace_id=editor.workspace_id,
+            query=payload.query,
+            mode=payload.mode,
+            limit=payload.limit,
+        )
+    except search_service.VectorSearchUnavailable as exc:
+        # 503: the request was fine, a dependency is down; retrying later may work.
+        raise AppError("embedding_unavailable", str(exc), status_code=503) from exc
+    return SearchResponse(
+        mode=result.mode,
+        hits=[SearchHitRead.model_validate(hit) for hit in result.hits],
+        degraded=result.degraded,
     )
 
 
