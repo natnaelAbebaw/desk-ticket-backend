@@ -44,6 +44,22 @@ def test_heading_without_text_adds_no_chunk() -> None:
     assert [(c.heading, c.content) for c in chunks] == [("Help > Empty > Child", "Child text.")]
 
 
+def test_top_heading_repeating_the_title_is_dropped() -> None:
+    body = "# Card readers\nIntro.\n\n## Error codes\nK-101 means not found."
+    chunks = chunk_document("Card readers", body)
+    # Not "Card readers > Card readers > Error codes".
+    assert [c.heading for c in chunks] == ["Card readers", "Card readers > Error codes"]
+    # Case, spacing and punctuation do not matter.
+    assert chunk_document(" card READERS ", "# Card readers:\nIntro.")[0].heading == "card READERS"
+
+
+def test_matching_heading_is_kept_below_the_top_level() -> None:
+    # A different top heading means the document has its own structure: keep it all,
+    # even if a deeper heading happens to equal the title.
+    chunks = chunk_document("Billing", "# Plans\n## Billing\nMonthly or yearly.")
+    assert chunks[0].heading == "Billing > Plans > Billing"
+
+
 def test_hash_lines_inside_code_fences_are_not_headings() -> None:
     body = "# Install\n```bash\n# update the package index\napt update\n\napt install x\n```"
     chunks = chunk_document("Guide", body)

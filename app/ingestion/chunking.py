@@ -29,6 +29,8 @@ MAX_CHARS = 2_400
 OVERLAP_CHARS = 400
 HEADING_SEPARATOR = " > "
 
+# Words of a heading, for comparing a heading with the title (see _same_words).
+_WORDS = re.compile(r"\w+")
 # A Markdown ATX heading: 1-6 '#' then a space, e.g. "## Refunds".
 _HEADING = re.compile(r"^(#{1,6})\s+(.+?)\s*#*\s*$")
 # Opening or closing line of a fenced code block (``` or ~~~).
@@ -70,11 +72,23 @@ def chunk_hash(heading: str, content: str) -> str:
 
 
 def chunk_document(title: str, body: str) -> list[Chunk]:
+    title = title.strip()
     pieces: list[tuple[str, str]] = []
     for path, text in _sections(body):
-        heading = HEADING_SEPARATOR.join([title.strip(), *path])
+        # Documents often open with "# <title>". Keeping it would give every chunk the
+        # path "Card readers > Card readers > Error codes": the repeat adds no meaning
+        # but is embedded and keyword-weighted with every chunk. Only the first level is
+        # checked: a deeper heading that happens to match the title is real structure.
+        if path and _same_words(path[0], title):
+            path = path[1:]
+        heading = HEADING_SEPARATOR.join([title, *path])
         pieces.extend((heading, part) for part in _pack(_paragraphs(text)))
     return _finish(pieces)
+
+
+def _same_words(a: str, b: str) -> bool:
+    """Equal ignoring case, spacing, and punctuation: "Card readers" == "card  readers:"."""
+    return _WORDS.findall(a.lower()) == _WORDS.findall(b.lower())
 
 
 def chunk_ticket_answer(title: str, question: str, body: str) -> list[Chunk]:

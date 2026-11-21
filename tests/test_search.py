@@ -116,6 +116,54 @@ async def test_keyword_search_matches_word_forms(
     assert (await ws.search(client, "refund zebra", mode="keyword"))["hits"] == []
 
 
+async def test_hybrid_keyword_side_matches_any_word(
+    client: AsyncClient,
+    factory: async_sessionmaker[AsyncSession],
+    settings: Settings,
+    embedder: FakeEmbedder,
+) -> None:
+    """A question rarely has every word in one chunk. Keyword mode stays strict; hybrid
+    still gets keyword evidence from the words that do match."""
+    ws = await _workspace(client, factory, settings, embedder)
+    question = "how do I get a refund for my zebra"
+    assert (await ws.search(client, question, mode="keyword"))["hits"] == []
+
+    result = await ws.search(client, question, mode="hybrid")
+    by_heading = {hit["heading"]: hit for hit in result["hits"]}
+    assert by_heading["Billing guide > Refunds"]["keyword_rank"] == 1
+
+
+async def test_any_word_ranks_chunks_with_more_matching_words_first(
+    client: AsyncClient,
+    factory: async_sessionmaker[AsyncSession],
+    settings: Settings,
+    embedder: FakeEmbedder,
+) -> None:
+    ws = await _workspace(client, factory, settings, embedder)
+    # "payment" is in Refunds and Failed payments; "card", "retry", and "charge" only
+    # in Failed payments, so it has the most matches and ranks first.
+    result = await ws.search(client, "card payment retry charge", mode="hybrid", limit=10)
+    keyword_order = sorted(
+        (hit for hit in result["hits"] if hit["keyword_rank"]), key=lambda h: h["keyword_rank"]
+    )
+    assert keyword_order[0]["heading"] == "Billing guide > Failed payments"
+    assert "Billing guide > Refunds" in [hit["heading"] for hit in keyword_order]
+
+
+async def test_any_word_query_is_safe_with_odd_input(
+    client: AsyncClient,
+    factory: async_sessionmaker[AsyncSession],
+    settings: Settings,
+    embedder: FakeEmbedder,
+) -> None:
+    # Characters that are tsquery syntax (& | ! : ' ( )) must not cause a 500, and a
+    # query of only stop words or symbols just finds nothing on the keyword side.
+    ws = await _workspace(client, factory, settings, embedder)
+    for query in ["refund & | ! :* ' ( )", "the a of", "!!!", "E4021-"]:
+        result = await ws.search(client, query, mode="hybrid")
+        assert result["degraded"] is False
+
+
 # Vector search
 
 

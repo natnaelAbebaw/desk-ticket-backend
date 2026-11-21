@@ -17,6 +17,7 @@ Every query applies the same three filters, in SQL, never after the fact:
 """
 
 import logging
+import re
 import uuid
 from dataclasses import dataclass
 from enum import StrEnum
@@ -39,6 +40,11 @@ CANDIDATES = 50
 # finds the true nearest neighbours more often, at some speed cost. pgvector's
 # default is 40, below CANDIDATES, which would cap the result count.
 HNSW_EF_SEARCH = 100
+# Words used from a question for "any word" keyword matching (see _any_word). A cap
+# keeps one long question from building a huge OR query; 1000 characters is far more
+# than any real question needs, so the cap rarely matters.
+MAX_QUERY_WORDS = 32
+_WORD = re.compile(r"[\w-]+")
 
 
 class SearchMode(StrEnum):
@@ -89,7 +95,7 @@ async def search(
     limit: int = 5,
 ) -> SearchResult:
     if mode is SearchMode.keyword:
-        rows = await _keyword(session, workspace_id, query, limit)
+        rows = await _keyword(session, workspace_id, query, limit, any_word=False)
         return SearchResult(mode, [_hit(row, keyword_rank=i) for i, row in _ranked(rows)])
 
     try:
@@ -99,7 +105,7 @@ async def search(
             raise VectorSearchUnavailable(str(exc)) from exc
         # Hybrid degrades instead of failing: keyword results beat an error page.
         logger.warning("vector search unavailable, using keywords only: %s", exc)
-        rows = await _keyword(session, workspace_id, query, limit)
+        rows = await _keyword(session, workspace_id, query, limit, any_word=True)
         hits = [_hit(row, keyword_rank=i) for i, row in _ranked(rows)]
         return SearchResult(mode, hits, degraded=True)
 
@@ -107,7 +113,7 @@ async def search(
         rows = await _vector(session, workspace_id, vector, embedder.model, limit)
         return SearchResult(mode, [_hit(row, vector_rank=i) for i, row in _ranked(rows)])
 
-    keyword_rows = await _keyword(session, workspace_id, query, CANDIDATES)
+    keyword_rows = await _keyword(session, workspace_id, query, CANDIDATES, any_word=True)
     vector_rows = await _vector(session, workspace_id, vector, embedder.model, CANDIDATES)
     by_id = {row.chunk_id: row for row in [*keyword_rows, *vector_rows]}
     keyword_ranks = {row.chunk_id: i for i, row in _ranked(keyword_rows)}
@@ -152,12 +158,21 @@ def _retrievable(workspace_id: uuid.UUID, score: object) -> Select:
 
 
 async def _keyword(
-    session: AsyncSession, workspace_id: uuid.UUID, query: str, limit: int
+    session: AsyncSession, workspace_id: uuid.UUID, query: str, limit: int, *, any_word: bool
 ) -> list[Row[Any]]:
-    # websearch_to_tsquery accepts what people type into search boxes: plain words
-    # (all must match), "quoted phrases", `or`, and -excluded words. Unlike
-    # to_tsquery it never raises a syntax error on odd input.
-    tsquery = func.websearch_to_tsquery(SEARCH_CONFIG, query)
+    """Full-text search, in one of two matching styles.
+
+    any_word=False (keyword mode): websearch_to_tsquery, the search-box syntax. Every
+    word must match, and "quoted phrases", `or`, and -excluded words work. Precise, for
+    someone typing an error code or a few exact terms.
+
+    any_word=True (hybrid, and its keyword-only fallback): a chunk matches if it has
+    any of the words. Questions are sentences: "refund to a new card" has three
+    content words, and requiring all three found nothing whenever one ("new") was
+    missing, so hybrid search lost its keyword side for most real questions. The
+    ranking below still puts chunks with more of the words, closer together, first.
+    """
+    tsquery = _any_word(query) if any_word else func.websearch_to_tsquery(SEARCH_CONFIG, query)
     # ts_rank_cd rewards matches that are frequent, close together, and in the
     # heading (weight A). Normalization 32 maps the rank into 0..1 as rank/(rank+1).
     rank = func.ts_rank_cd(KnowledgeChunk.search_vector, tsquery, 32).label("score")
@@ -170,6 +185,23 @@ async def _keyword(
         .limit(limit)
     )
     return list((await session.execute(statement)).all())
+
+
+def _any_word(query: str) -> Any:
+    """A tsquery matching any word of the query: w1 | w2 | ...
+
+    Built as plainto_tsquery(word1) || plainto_tsquery(word2) || ..., where || on two
+    tsqueries means OR. Each word goes to Postgres as a bound parameter, so no input can
+    break the query syntax, and plainto_tsquery stems each word with the same 'english'
+    config as the indexed column ("refunded" -> refund) and drops stop words ("to",
+    "a"). A word that is only a stop word becomes an empty query, which || ignores.
+    """
+    words = list(dict.fromkeys(word.lower() for word in _WORD.findall(query)))
+    words = words[:MAX_QUERY_WORDS] or [query]
+    tsquery = func.plainto_tsquery(SEARCH_CONFIG, words[0])
+    for word in words[1:]:
+        tsquery = tsquery.op("||")(func.plainto_tsquery(SEARCH_CONFIG, word))
+    return tsquery
 
 
 async def _vector(
