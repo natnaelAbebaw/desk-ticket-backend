@@ -1,4 +1,4 @@
-.PHONY: install db ollama dev worker reembed test lint migrate
+.PHONY: install db ollama dev worker reembed seed seed-reset test lint migrate
 
 install:
 	python -m pip install -e ".[dev]"
@@ -20,6 +20,13 @@ worker:
 # Re-queue sources whose chunks lack a vector from the current EMBEDDING_MODEL.
 reembed:
 	python -m app.embeddings.backfill
+
+# Fictional demo workspaces (Kettle & Co, Harbor Books) with tickets and knowledge.
+seed:
+	python -m app.seed --wait
+
+seed-reset:
+	python -m app.seed --reset --wait
 
 test:
 	pytest

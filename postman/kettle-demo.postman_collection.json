@@ -1,0 +1,1932 @@
+{
+  "info": {
+    "name": "Kettle demo (seeded data)",
+    "description": "Generate a Postman collection for exploring the seeded demo data by hand.\n\n    make seed-reset                # fresh demo data first (see app/seed/)\n    python postman/build_demo.py   # writes postman/kettle-demo.postman_collection.json\n\nUnlike desk-ticket.postman_collection.json, which builds its own users and data from\nscratch, this one logs in as the seeded people (Maya the owner, Priya the agent, Sam\nthe member, Rosa from the other company) and works with what `make seed` loaded.\n\nFolders 1 and 5 (search, isolation) only read, so they can be sent any number of times.\nFolders 2 to 4 change data (approve a draft, file and resolve a ticket). A second run\nof those gets 409s, because the draft is already approved: `make seed-reset` first.\n",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8000"
+    },
+    {
+      "key": "password",
+      "value": "demo-password"
+    }
+  ],
+  "item": [
+    {
+      "name": "0. Log in (run this first)",
+      "description": "Logs in as the seeded people and finds both workspaces. Every other folder needs the tokens and ids saved here.",
+      "item": [
+        {
+          "name": "Log in maya",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set(\"maya_token\", pm.response.json().access_token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/auth/token",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"maya@kettle.test\",\n  \"password\": \"{{password}}\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Log in omar",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set(\"omar_token\", pm.response.json().access_token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/auth/token",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"omar@kettle.test\",\n  \"password\": \"{{password}}\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Log in priya",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set(\"priya_token\", pm.response.json().access_token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/auth/token",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"priya@kettle.test\",\n  \"password\": \"{{password}}\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Log in sam",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set(\"sam_token\", pm.response.json().access_token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/auth/token",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"sam@kettle.test\",\n  \"password\": \"{{password}}\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Log in rosa",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set(\"rosa_token\", pm.response.json().access_token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/auth/token",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"rosa@harbor.test\",\n  \"password\": \"{{password}}\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Priya: who am I (saves priya_id)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set(\"priya_id\", pm.response.json().id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{priya_token}}"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/users/me"
+          }
+        },
+        {
+          "name": "Maya: find the Kettle workspace",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "{ const found = pm.response.json().items.find(x => x.slug === \"kettle-demo\");",
+                  "pm.test(\"found Kettle\", () => pm.expect(found, \"run make seed-reset?\").to.exist);",
+                  "if (found) { pm.collectionVariables.set(\"workspace_id\", found.id); } }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{maya_token}}"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces"
+          }
+        },
+        {
+          "name": "Rosa: find the Harbor workspace",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "{ const found = pm.response.json().items.find(x => x.slug === \"harbor-demo\");",
+                  "pm.test(\"found Harbor\", () => pm.expect(found, \"run make seed-reset?\").to.exist);",
+                  "if (found) { pm.collectionVariables.set(\"harbor_id\", found.id); } }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{rosa_token}}"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces"
+          }
+        },
+        {
+          "name": "Kettle members",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"6 people\", () => pm.expect(pm.response.json().total === 6).to.be.true);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{maya_token}}"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/members"
+          }
+        }
+      ]
+    },
+    {
+      "name": "1. Search playground (read-only)",
+      "description": "Edit the query in any request body and Send. Open View > Show Postman Console for the result table: kw and vec show which search found each chunk.",
+      "item": [
+        {
+          "name": "keyword: exact error code K-415",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "",
+                  "const body = pm.response.json();",
+                  "console.log(pm.info.requestName, body.degraded ? \"(DEGRADED)\" : \"\");",
+                  "console.table((body.hits || []).map(h => ({",
+                  "  source: h.source_title, heading: h.heading, score: h.score.toFixed(3),",
+                  "  kw: h.keyword_rank, vec: h.vector_rank,",
+                  "})));",
+                  "const text = (h) => (h.heading + \" \" + h.content).toLowerCase();"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{maya_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/knowledge/search",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"K-415\",\n  \"mode\": \"keyword\",\n  \"limit\": 5\n}"
+            }
+          }
+        },
+        {
+          "name": "vector: my reader is locked",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "",
+                  "const body = pm.response.json();",
+                  "console.log(pm.info.requestName, body.degraded ? \"(DEGRADED)\" : \"\");",
+                  "console.table((body.hits || []).map(h => ({",
+                  "  source: h.source_title, heading: h.heading, score: h.score.toFixed(3),",
+                  "  kw: h.keyword_rank, vec: h.vector_rank,",
+                  "})));",
+                  "const text = (h) => (h.heading + \" \" + h.content).toLowerCase();"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{maya_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/knowledge/search",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"my reader is locked\",\n  \"mode\": \"vector\",\n  \"limit\": 5\n}"
+            }
+          }
+        },
+        {
+          "name": "hybrid: weekend money hasn't arrived",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "",
+                  "const body = pm.response.json();",
+                  "console.log(pm.info.requestName, body.degraded ? \"(DEGRADED)\" : \"\");",
+                  "console.table((body.hits || []).map(h => ({",
+                  "  source: h.source_title, heading: h.heading, score: h.score.toFixed(3),",
+                  "  kw: h.keyword_rank, vec: h.vector_rank,",
+                  "})));",
+                  "const text = (h) => (h.heading + \" \" + h.content).toLowerCase();"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{maya_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/knowledge/search",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"money from the weekend hasn't arrived\",\n  \"mode\": \"hybrid\",\n  \"limit\": 5\n}"
+            }
+          }
+        },
+        {
+          "name": "vector: someone changed our bank details",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "",
+                  "const body = pm.response.json();",
+                  "console.log(pm.info.requestName, body.degraded ? \"(DEGRADED)\" : \"\");",
+                  "console.table((body.hits || []).map(h => ({",
+                  "  source: h.source_title, heading: h.heading, score: h.score.toFixed(3),",
+                  "  kw: h.keyword_rank, vec: h.vector_rank,",
+                  "})));",
+                  "const text = (h) => (h.heading + \" \" + h.content).toLowerCase();"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{maya_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/knowledge/search",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"someone changed our bank details\",\n  \"mode\": \"vector\",\n  \"limit\": 5\n}"
+            }
+          }
+        },
+        {
+          "name": "hybrid: wifi is down, can we take cards?",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "",
+                  "const body = pm.response.json();",
+                  "console.log(pm.info.requestName, body.degraded ? \"(DEGRADED)\" : \"\");",
+                  "console.table((body.hits || []).map(h => ({",
+                  "  source: h.source_title, heading: h.heading, score: h.score.toFixed(3),",
+                  "  kw: h.keyword_rank, vec: h.vector_rank,",
+                  "})));",
+                  "const text = (h) => (h.heading + \" \" + h.content).toLowerCase();"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{priya_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/knowledge/search",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"our internet is down can we still take card payments\",\n  \"mode\": \"hybrid\",\n  \"limit\": 5\n}"
+            }
+          }
+        },
+        {
+          "name": "hybrid: croissants come back after sold out",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "",
+                  "const body = pm.response.json();",
+                  "console.log(pm.info.requestName, body.degraded ? \"(DEGRADED)\" : \"\");",
+                  "console.table((body.hits || []).map(h => ({",
+                  "  source: h.source_title, heading: h.heading, score: h.score.toFixed(3),",
+                  "  kw: h.keyword_rank, vec: h.vector_rank,",
+                  "})));",
+                  "const text = (h) => (h.heading + \" \" + h.content).toLowerCase();"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{priya_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/knowledge/search",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"croissants come back the next morning after we mark them sold out\",\n  \"mode\": \"hybrid\",\n  \"limit\": 5\n}"
+            }
+          }
+        },
+        {
+          "name": "hybrid: kitchen screen not showing orders",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "",
+                  "const body = pm.response.json();",
+                  "console.log(pm.info.requestName, body.degraded ? \"(DEGRADED)\" : \"\");",
+                  "console.table((body.hits || []).map(h => ({",
+                  "  source: h.source_title, heading: h.heading, score: h.score.toFixed(3),",
+                  "  kw: h.keyword_rank, vec: h.vector_rank,",
+                  "})));",
+                  "const text = (h) => (h.heading + \" \" + h.content).toLowerCase();"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{priya_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/knowledge/search",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"kitchen screen stopped showing orders\",\n  \"mode\": \"hybrid\",\n  \"limit\": 5\n}"
+            }
+          }
+        },
+        {
+          "name": "hybrid: refund to a new card (answer still pending)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "",
+                  "const body = pm.response.json();",
+                  "console.log(pm.info.requestName, body.degraded ? \"(DEGRADED)\" : \"\");",
+                  "console.table((body.hits || []).map(h => ({",
+                  "  source: h.source_title, heading: h.heading, score: h.score.toFixed(3),",
+                  "  kw: h.keyword_rank, vec: h.vector_rank,",
+                  "})));",
+                  "const text = (h) => (h.heading + \" \" + h.content).toLowerCase();",
+                  "console.log(\"The 'Refund to a replacement card' answer is pending review, so it must not be listed. Approve it in folder 2 to see it appear.\");"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{maya_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/knowledge/search",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"refund to a new card\",\n  \"mode\": \"hybrid\",\n  \"limit\": 5\n}"
+            }
+          }
+        },
+        {
+          "name": "vector: not in the knowledge base",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "",
+                  "const body = pm.response.json();",
+                  "console.log(pm.info.requestName, body.degraded ? \"(DEGRADED)\" : \"\");",
+                  "console.table((body.hits || []).map(h => ({",
+                  "  source: h.source_title, heading: h.heading, score: h.score.toFixed(3),",
+                  "  kw: h.keyword_rank, vec: h.vector_rank,",
+                  "})));",
+                  "const text = (h) => (h.heading + \" \" + h.content).toLowerCase();",
+                  "console.log(\"No article covers this. Compare these scores with a good match (about 0.7): that gap is what milestone 5 measures.\");"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{maya_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/knowledge/search",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"can we export sales to accounting software\",\n  \"mode\": \"vector\",\n  \"limit\": 5\n}"
+            }
+          }
+        },
+        {
+          "name": "keyword vs hybrid: same question",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "",
+                  "const body = pm.response.json();",
+                  "console.log(pm.info.requestName, body.degraded ? \"(DEGRADED)\" : \"\");",
+                  "console.table((body.hits || []).map(h => ({",
+                  "  source: h.source_title, heading: h.heading, score: h.score.toFixed(3),",
+                  "  kw: h.keyword_rank, vec: h.vector_rank,",
+                  "})));",
+                  "const text = (h) => (h.heading + \" \" + h.content).toLowerCase();",
+                  "console.log(\"Keyword search needs every word, so a full sentence often finds nothing.\");"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{maya_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/knowledge/search",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"refund to a new card\",\n  \"mode\": \"keyword\",\n  \"limit\": 5\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Review queue (changes data)",
+      "description": "Maya reviews what agents wrote. Approving makes the worker chunk and embed it, and then it shows up in search.",
+      "item": [
+        {
+          "name": "Pending review",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "{ const found = pm.response.json().items.find(x => x.title === \"Gift cards\");",
+                  "pm.test(\"found Gift cards\", () => pm.expect(found, \"run make seed-reset?\").to.exist);",
+                  "if (found) { pm.collectionVariables.set(\"gift_cards_id\", found.id); } }",
+                  "{ const found = pm.response.json().items.find(x => x.title === \"Refund to a replacement card\");",
+                  "pm.test(\"found Refund to a replacement card\", () => pm.expect(found, \"run make seed-reset?\").to.exist);",
+                  "if (found) { pm.collectionVariables.set(\"pending_answer_id\", found.id); } }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{maya_token}}"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/knowledge?status=pending_review"
+          }
+        },
+        {
+          "name": "Rejected (open one to read the note)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "{ const found = pm.response.json().items.find(x => x.title === \"Loyalty points\");",
+                  "pm.test(\"found Loyalty points\", () => pm.expect(found, \"run make seed-reset?\").to.exist);",
+                  "if (found) { pm.collectionVariables.set(\"loyalty_id\", found.id); } }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{maya_token}}"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/knowledge?status=rejected"
+          }
+        },
+        {
+          "name": "Read the rejected loyalty doc",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"has a review note\", () => pm.expect(!!pm.response.json().review_note).to.be.true);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{maya_token}}"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/knowledge/{{loyalty_id}}"
+          }
+        },
+        {
+          "name": "Before: gift cards are not searchable",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "",
+                  "const body = pm.response.json();",
+                  "console.log(pm.info.requestName, body.degraded ? \"(DEGRADED)\" : \"\");",
+                  "console.table((body.hits || []).map(h => ({",
+                  "  source: h.source_title, heading: h.heading, score: h.score.toFixed(3),",
+                  "  kw: h.keyword_rank, vec: h.vector_rank,",
+                  "})));",
+                  "const text = (h) => (h.heading + \" \" + h.content).toLowerCase();",
+                  "pm.test(\"no gift card hits\", () => pm.expect(body.hits.some(h => h.source_title === \"Gift cards\")).to.be.false);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{maya_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/knowledge/search",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"do gift cards expire\",\n  \"mode\": \"hybrid\",\n  \"limit\": 5\n}"
+            }
+          }
+        },
+        {
+          "name": "Priya tries to approve her own draft -> 403",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 403\", () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{priya_token}}"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/knowledge/{{gift_cards_id}}/approve"
+          }
+        },
+        {
+          "name": "Maya approves gift cards",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{maya_token}}"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/knowledge/{{gift_cards_id}}/approve"
+          }
+        },
+        {
+          "name": "Omar (admin) approves the refund answer",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{omar_token}}"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/knowledge/{{pending_answer_id}}/approve"
+          }
+        },
+        {
+          "name": "Wait for gift cards ingestion",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (Number(pm.collectionVariables.get(\"retries_gift_cards_id\") || 0) > 0) {",
+                  "  setTimeout(() => {}, 1000);",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const job = pm.response.json();",
+                  "const tries = Number(pm.collectionVariables.get(\"retries_gift_cards_id\") || 0);",
+                  "if (job && (job.status === \"queued\" || job.status === \"running\") && tries < 30) {",
+                  "  pm.collectionVariables.set(\"retries_gift_cards_id\", tries + 1);",
+                  "  postman.setNextRequest(pm.info.requestName);",
+                  "  return;",
+                  "}",
+                  "pm.collectionVariables.set(\"retries_gift_cards_id\", 0);",
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"worker succeeded (is `make worker` running?)\", () => pm.expect(job && job.status, job && job.last_error).to.eql(\"succeeded\"));",
+                  "pm.test(\"every chunk got a vector\", () => pm.expect(job.embedded_count === job.chunk_count).to.be.true);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{maya_token}}"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/knowledge/{{gift_cards_id}}/ingestion",
+            "description": "Poll the source's ingestion job until the worker finishes.\n\nChunking and embedding run in the worker, not in the request, so search right after\napproval would find nothing. In the Collection Runner this request repeats itself\n(setNextRequest with its own name) once a second, up to 30 times. Sent by hand, just\nclick Send again until status is succeeded.\n"
+          }
+        },
+        {
+          "name": "Wait for refund answer ingestion",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (Number(pm.collectionVariables.get(\"retries_pending_answer_id\") || 0) > 0) {",
+                  "  setTimeout(() => {}, 1000);",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const job = pm.response.json();",
+                  "const tries = Number(pm.collectionVariables.get(\"retries_pending_answer_id\") || 0);",
+                  "if (job && (job.status === \"queued\" || job.status === \"running\") && tries < 30) {",
+                  "  pm.collectionVariables.set(\"retries_pending_answer_id\", tries + 1);",
+                  "  postman.setNextRequest(pm.info.requestName);",
+                  "  return;",
+                  "}",
+                  "pm.collectionVariables.set(\"retries_pending_answer_id\", 0);",
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"worker succeeded (is `make worker` running?)\", () => pm.expect(job && job.status, job && job.last_error).to.eql(\"succeeded\"));",
+                  "pm.test(\"every chunk got a vector\", () => pm.expect(job.embedded_count === job.chunk_count).to.be.true);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{maya_token}}"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/knowledge/{{pending_answer_id}}/ingestion",
+            "description": "Poll the source's ingestion job until the worker finishes.\n\nChunking and embedding run in the worker, not in the request, so search right after\napproval would find nothing. In the Collection Runner this request repeats itself\n(setNextRequest with its own name) once a second, up to 30 times. Sent by hand, just\nclick Send again until status is succeeded.\n"
+          }
+        },
+        {
+          "name": "After: gift cards are searchable",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "",
+                  "const body = pm.response.json();",
+                  "console.log(pm.info.requestName, body.degraded ? \"(DEGRADED)\" : \"\");",
+                  "console.table((body.hits || []).map(h => ({",
+                  "  source: h.source_title, heading: h.heading, score: h.score.toFixed(3),",
+                  "  kw: h.keyword_rank, vec: h.vector_rank,",
+                  "})));",
+                  "const text = (h) => (h.heading + \" \" + h.content).toLowerCase();",
+                  "pm.test(\"gift card hit\", () => pm.expect(body.hits.some(h => h.source_title === \"Gift cards\")).to.be.true);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{maya_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/knowledge/search",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"do gift cards expire\",\n  \"mode\": \"hybrid\",\n  \"limit\": 5\n}"
+            }
+          }
+        },
+        {
+          "name": "After: the refund answer shows up",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "",
+                  "const body = pm.response.json();",
+                  "console.log(pm.info.requestName, body.degraded ? \"(DEGRADED)\" : \"\");",
+                  "console.table((body.hits || []).map(h => ({",
+                  "  source: h.source_title, heading: h.heading, score: h.score.toFixed(3),",
+                  "  kw: h.keyword_rank, vec: h.vector_rank,",
+                  "})));",
+                  "const text = (h) => (h.heading + \" \" + h.content).toLowerCase();",
+                  "pm.test(\"answer is listed\", () => pm.expect(body.hits.some(h => h.source_title === \"Refund to a replacement card\")).to.be.true);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{maya_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/knowledge/search",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"refund to a new card\",\n  \"mode\": \"hybrid\",\n  \"limit\": 5\n}"
+            }
+          }
+        },
+        {
+          "name": "Chunks of the card reader article",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "{ const found = pm.response.json().items.find(x => x.title === \"Card readers\");",
+                  "pm.test(\"found Card readers\", () => pm.expect(found, \"run make seed-reset?\").to.exist);",
+                  "if (found) { pm.collectionVariables.set(\"card_readers_id\", found.id); } }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{maya_token}}"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/knowledge?kind=document&limit=100"
+          }
+        },
+        {
+          "name": "See its chunks",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{maya_token}}"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/knowledge/{{card_readers_id}}/chunks"
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Tickets (as Priya and Sam)",
+      "description": "Browse the seeded tickets, then follow one new ticket from Sam through to resolved.",
+      "item": [
+        {
+          "name": "All tickets",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "",
+                  "console.table(pm.response.json().items.map(t => ({",
+                  "  subject: t.subject, status: t.status, priority: t.priority, category: t.category,",
+                  "})));",
+                  "pm.test(\"22+ tickets\", () => pm.expect(pm.response.json().total >= 22).to.be.true);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{priya_token}}"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/tickets?limit=100"
+          }
+        },
+        {
+          "name": "Urgent ones",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "",
+                  "console.table(pm.response.json().items.map(t => ({",
+                  "  subject: t.subject, status: t.status, priority: t.priority, category: t.category,",
+                  "})));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{priya_token}}"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/tickets?priority=urgent"
+          }
+        },
+        {
+          "name": "Open billing",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "",
+                  "console.table(pm.response.json().items.map(t => ({",
+                  "  subject: t.subject, status: t.status, priority: t.priority, category: t.category,",
+                  "})));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{priya_token}}"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/tickets?status=open&category=billing"
+          }
+        },
+        {
+          "name": "Assigned to Priya",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "",
+                  "console.table(pm.response.json().items.map(t => ({",
+                  "  subject: t.subject, status: t.status, priority: t.priority, category: t.category,",
+                  "})));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{priya_token}}"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/tickets?assigned_to={{priya_id}}"
+          }
+        },
+        {
+          "name": "Waiting on the customer (pending)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "",
+                  "console.table(pm.response.json().items.map(t => ({",
+                  "  subject: t.subject, status: t.status, priority: t.priority, category: t.category,",
+                  "})));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{priya_token}}"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/tickets?status=pending"
+          }
+        },
+        {
+          "name": "Find the K-415 ticket",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "{ const found = pm.response.json().items.find(x => x.subject === \"Reader shows K-415 and won't take payments\");",
+                  "pm.test(\"found Reader shows K-415 and won't take payments\", () => pm.expect(found, \"run make seed-reset?\").to.exist);",
+                  "if (found) { pm.collectionVariables.set(\"k415_ticket_id\", found.id); } }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{priya_token}}"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/tickets?limit=100"
+          }
+        },
+        {
+          "name": "Its conversation (replies + internal note)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{priya_token}}"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/tickets/{{k415_ticket_id}}/messages"
+          }
+        },
+        {
+          "name": "Its history (events)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{priya_token}}"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/tickets/{{k415_ticket_id}}/events"
+          }
+        },
+        {
+          "name": "Sam files a new ticket",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 201\", () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set(\"new_ticket_id\", pm.response.json().id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{sam_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/tickets",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"subject\": \"Reader stuck blinking amber\",\n  \"description\": \"Our K2 has been blinking amber for 20 minutes. Can we unplug it?\",\n  \"priority\": \"high\",\n  \"category\": \"technical\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Search for an answer before replying",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "console.log(\"The status-lights section should be first: amber = updating firmware.\");"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{priya_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/knowledge/search",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"reader blinking amber\",\n  \"limit\": 3\n}"
+            }
+          }
+        },
+        {
+          "name": "Priya takes it",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{priya_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/tickets/{{new_ticket_id}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"assigned_to\": \"{{priya_id}}\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Priya replies",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 201\", () => pm.response.to.have.status(201));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{priya_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/tickets/{{new_ticket_id}}/messages",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"body\": \"Blinking amber means a firmware update. Please don't turn it off; it finishes on its own. If it fails you'll see K-310.\",\n  \"message_type\": \"reply\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Sam can't post a system message -> 422",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 422\", () => pm.response.to.have.status(422));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{sam_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/tickets/{{new_ticket_id}}/messages",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"body\": \"x\",\n  \"message_type\": \"system\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Priya resolves it",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{priya_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/tickets/{{new_ticket_id}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"resolved\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Its history now",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{priya_token}}"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/tickets/{{new_ticket_id}}/events"
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Turn the new ticket into knowledge (changes data)",
+      "description": "Priya writes a reusable answer from the ticket resolved in folder 3; Maya approves it; it becomes searchable.",
+      "item": [
+        {
+          "name": "Priya proposes an answer",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 201\", () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set(\"amber_answer_id\", pm.response.json().id);",
+                  "pm.test(\"waits for review\", () => pm.expect(pm.response.json().status === \"pending_review\").to.be.true);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{priya_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/tickets/{{new_ticket_id}}/knowledge",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Reader blinking amber\",\n  \"question\": \"A card reader has been blinking amber for a long time. Can the merchant unplug it?\",\n  \"body\": \"Blinking amber means a firmware update is running. Do not turn the reader off: it finishes on its own. If the update fails, the reader shows K-310; keep it charging and retry from Settings, Hardware.\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Propose again -> 409",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 409\", () => pm.response.to.have.status(409));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{priya_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/tickets/{{new_ticket_id}}/knowledge",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"dup\",\n  \"question\": \"dup\",\n  \"body\": \"dup\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Maya approves",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{maya_token}}"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/knowledge/{{amber_answer_id}}/approve"
+          }
+        },
+        {
+          "name": "Wait for the answer's ingestion",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (Number(pm.collectionVariables.get(\"retries_amber_answer_id\") || 0) > 0) {",
+                  "  setTimeout(() => {}, 1000);",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const job = pm.response.json();",
+                  "const tries = Number(pm.collectionVariables.get(\"retries_amber_answer_id\") || 0);",
+                  "if (job && (job.status === \"queued\" || job.status === \"running\") && tries < 30) {",
+                  "  pm.collectionVariables.set(\"retries_amber_answer_id\", tries + 1);",
+                  "  postman.setNextRequest(pm.info.requestName);",
+                  "  return;",
+                  "}",
+                  "pm.collectionVariables.set(\"retries_amber_answer_id\", 0);",
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"worker succeeded (is `make worker` running?)\", () => pm.expect(job && job.status, job && job.last_error).to.eql(\"succeeded\"));",
+                  "pm.test(\"every chunk got a vector\", () => pm.expect(job.embedded_count === job.chunk_count).to.be.true);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{maya_token}}"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/knowledge/{{amber_answer_id}}/ingestion",
+            "description": "Poll the source's ingestion job until the worker finishes.\n\nChunking and embedding run in the worker, not in the request, so search right after\napproval would find nothing. In the Collection Runner this request repeats itself\n(setNextRequest with its own name) once a second, up to 30 times. Sent by hand, just\nclick Send again until status is succeeded.\n"
+          }
+        },
+        {
+          "name": "Search finds the new answer",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "",
+                  "const body = pm.response.json();",
+                  "console.log(pm.info.requestName, body.degraded ? \"(DEGRADED)\" : \"\");",
+                  "console.table((body.hits || []).map(h => ({",
+                  "  source: h.source_title, heading: h.heading, score: h.score.toFixed(3),",
+                  "  kw: h.keyword_rank, vec: h.vector_rank,",
+                  "})));",
+                  "const text = (h) => (h.heading + \" \" + h.content).toLowerCase();",
+                  "pm.test(\"new answer listed\", () => pm.expect(body.hits.some(h => h.source_title === \"Reader blinking amber\")).to.be.true);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{maya_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/knowledge/search",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"reader light blinking amber\",\n  \"mode\": \"hybrid\",\n  \"limit\": 5\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. Tenant isolation (read-only)",
+      "description": "Rosa runs Harbor Books, a different company. Neither side can see the other's data.",
+      "item": [
+        {
+          "name": "Rosa searches Harbor: only Harbor's policy",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "",
+                  "const body = pm.response.json();",
+                  "console.log(pm.info.requestName, body.degraded ? \"(DEGRADED)\" : \"\");",
+                  "console.table((body.hits || []).map(h => ({",
+                  "  source: h.source_title, heading: h.heading, score: h.score.toFixed(3),",
+                  "  kw: h.keyword_rank, vec: h.vector_rank,",
+                  "})));",
+                  "const text = (h) => (h.heading + \" \" + h.content).toLowerCase();",
+                  "pm.test(\"only Harbor\", () => pm.expect(body.hits.every(h => h.source_title === \"Returns and refunds\")).to.be.true);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{rosa_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces/{{harbor_id}}/knowledge/search",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"how many days to return\",\n  \"mode\": \"hybrid\",\n  \"limit\": 5\n}"
+            }
+          }
+        },
+        {
+          "name": "Maya searches Kettle: never Harbor's 30 days",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "",
+                  "const body = pm.response.json();",
+                  "console.log(pm.info.requestName, body.degraded ? \"(DEGRADED)\" : \"\");",
+                  "console.table((body.hits || []).map(h => ({",
+                  "  source: h.source_title, heading: h.heading, score: h.score.toFixed(3),",
+                  "  kw: h.keyword_rank, vec: h.vector_rank,",
+                  "})));",
+                  "const text = (h) => (h.heading + \" \" + h.content).toLowerCase();",
+                  "pm.test(\"no Harbor text\", () => pm.expect(body.hits.every(h => !h.content.includes(\"30 days of delivery\"))).to.be.true);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{maya_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/knowledge/search",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"30 days return policy\",\n  \"mode\": \"hybrid\",\n  \"limit\": 5\n}"
+            }
+          }
+        },
+        {
+          "name": "Rosa searches Kettle -> 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 404\", () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{rosa_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/knowledge/search",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"refund\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Maya reads Harbor's tickets -> 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 404\", () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{maya_token}}"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces/{{harbor_id}}/tickets"
+          }
+        },
+        {
+          "name": "Sam (member) searches -> 403",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 403\", () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{sam_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/knowledge/search",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"refund\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Sam lists knowledge -> 403",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 403\", () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{sam_token}}"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/knowledge"
+          }
+        }
+      ]
+    }
+  ]
+}
