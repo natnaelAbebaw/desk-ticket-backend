@@ -1,0 +1,1284 @@
+{
+  "created_at": "2026-11-24T18:02:11+00:00",
+  "model": "nomic-embed-text",
+  "dataset": "kettle-demo.yaml",
+  "dataset_hash": "f8d3c7564b72db88",
+  "knowledge_fingerprint": "677fbaf375bd6f17",
+  "tuning": {
+    "candidates": 50,
+    "rrf_k": 60,
+    "hybrid_any_word": false
+  },
+  "summary": {
+    "cases": 44,
+    "answerable": 34,
+    "unanswerable": 10,
+    "modes": {
+      "keyword": {
+        "recall@1": 0.235,
+        "recall@3": 0.235,
+        "recall@5": 0.235,
+        "mrr": 0.235,
+        "by_type": {
+          "exact": {
+            "cases": 9,
+            "recall@5": 0.889
+          },
+          "paraphrase": {
+            "cases": 21,
+            "recall@5": 0.0
+          },
+          "ticket": {
+            "cases": 4,
+            "recall@5": 0.0
+          }
+        }
+      },
+      "vector": {
+        "recall@1": 0.794,
+        "recall@3": 0.941,
+        "recall@5": 0.941,
+        "mrr": 0.864,
+        "by_type": {
+          "exact": {
+            "cases": 9,
+            "recall@5": 0.889
+          },
+          "paraphrase": {
+            "cases": 21,
+            "recall@5": 0.952
+          },
+          "ticket": {
+            "cases": 4,
+            "recall@5": 1.0
+          }
+        }
+      },
+      "hybrid": {
+        "recall@1": 0.824,
+        "recall@3": 0.971,
+        "recall@5": 0.971,
+        "mrr": 0.89,
+        "by_type": {
+          "exact": {
+            "cases": 9,
+            "recall@5": 1.0
+          },
+          "paraphrase": {
+            "cases": 21,
+            "recall@5": 0.952
+          },
+          "ticket": {
+            "cases": 4,
+            "recall@5": 1.0
+          }
+        }
+      }
+    },
+    "similarity": {
+      "answerable_median": 0.708,
+      "answerable_min": 0.511,
+      "unanswerable_median": 0.609,
+      "unanswerable_max": 0.682,
+      "cutoff": {
+        "threshold": 0.657,
+        "answered": 0.765,
+        "refused": 0.9
+      }
+    }
+  },
+  "cases": [
+    {
+      "id": "code-k310",
+      "type": "exact",
+      "question": "K-310",
+      "expect": [
+        "Card readers > Error codes"
+      ],
+      "ranks": {
+        "keyword": 1,
+        "vector": 1,
+        "hybrid": 1
+      },
+      "top": {
+        "keyword": [
+          "Card readers > Error codes"
+        ],
+        "vector": [
+          "Card readers > Error codes",
+          "Reader locked with K-415",
+          "Receipt printers and kitchen display > Kitchen display (KDS)"
+        ],
+        "hybrid": [
+          "Card readers > Error codes",
+          "Reader locked with K-415",
+          "Receipt printers and kitchen display > Kitchen display (KDS)"
+        ]
+      },
+      "top_similarity": 0.5111971735492692
+    },
+    {
+      "id": "code-k101",
+      "type": "exact",
+      "question": "K-101 reader not found",
+      "expect": [
+        "Card readers > Error codes"
+      ],
+      "ranks": {
+        "keyword": 1,
+        "vector": 1,
+        "hybrid": 1
+      },
+      "top": {
+        "keyword": [
+          "Card readers > Error codes"
+        ],
+        "vector": [
+          "Card readers > Error codes",
+          "Reader locked with K-415",
+          "Card readers"
+        ],
+        "hybrid": [
+          "Card readers > Error codes",
+          "Reader locked with K-415",
+          "Card readers"
+        ]
+      },
+      "top_similarity": 0.7102970575578126
+    },
+    {
+      "id": "code-k415",
+      "type": "exact",
+      "question": "K-415",
+      "expect": [
+        "Card readers > Error codes",
+        "Reader locked with K-415"
+      ],
+      "ranks": {
+        "keyword": 1,
+        "vector": 1,
+        "hybrid": 1
+      },
+      "top": {
+        "keyword": [
+          "Reader locked with K-415",
+          "Card readers > Error codes"
+        ],
+        "vector": [
+          "Reader locked with K-415",
+          "Card readers > Error codes",
+          "Receipt printers and kitchen display > Kitchen display (KDS)"
+        ],
+        "hybrid": [
+          "Reader locked with K-415",
+          "Card readers > Error codes",
+          "Receipt printers and kitchen display > Kitchen display (KDS)"
+        ]
+      },
+      "top_similarity": 0.6462630400453594
+    },
+    {
+      "id": "fee-rate",
+      "type": "exact",
+      "question": "2.6 percent plus 10 cents",
+      "expect": [
+        "Payouts and fees > Fees"
+      ],
+      "ranks": {
+        "keyword": 1,
+        "vector": 1,
+        "hybrid": 1
+      },
+      "top": {
+        "keyword": [
+          "Payouts and fees > Fees"
+        ],
+        "vector": [
+          "Payouts and fees > Fees",
+          "Card readers > Offline mode",
+          "Refunds and chargebacks > Chargebacks"
+        ],
+        "hybrid": [
+          "Payouts and fees > Fees",
+          "Card readers > Offline mode",
+          "Refunds and chargebacks > Chargebacks"
+        ]
+      },
+      "top_similarity": 0.6011455417362275
+    },
+    {
+      "id": "instant-payout",
+      "type": "exact",
+      "question": "instant payout fee",
+      "expect": [
+        "Payouts and fees > Payout schedule",
+        "When do weekend sales arrive?"
+      ],
+      "ranks": {
+        "keyword": 1,
+        "vector": 1,
+        "hybrid": 1
+      },
+      "top": {
+        "keyword": [
+          "Payouts and fees > Payout schedule"
+        ],
+        "vector": [
+          "Payouts and fees > Payout schedule",
+          "Payouts and fees > Fees",
+          "Payouts and fees > Payout holds"
+        ],
+        "hybrid": [
+          "Payouts and fees > Payout schedule",
+          "Payouts and fees > Fees",
+          "Payouts and fees > Payout holds"
+        ]
+      },
+      "top_similarity": 0.7509369105659194
+    },
+    {
+      "id": "chargeback-fee",
+      "type": "exact",
+      "question": "chargeback fee 15 USD",
+      "expect": [
+        "Refunds and chargebacks > Chargebacks"
+      ],
+      "ranks": {
+        "keyword": 1,
+        "vector": 1,
+        "hybrid": 1
+      },
+      "top": {
+        "keyword": [
+          "Refunds and chargebacks > Chargebacks"
+        ],
+        "vector": [
+          "Refunds and chargebacks > Chargebacks",
+          "Payouts and fees > Fees",
+          "Refunds and chargebacks > Refunds"
+        ],
+        "hybrid": [
+          "Refunds and chargebacks > Chargebacks",
+          "Payouts and fees > Fees",
+          "Refunds and chargebacks > Refunds"
+        ]
+      },
+      "top_similarity": 0.7585132080516758
+    },
+    {
+      "id": "kds",
+      "type": "exact",
+      "question": "KDS",
+      "expect": [
+        "Receipt printers and kitchen display > Kitchen display (KDS)"
+      ],
+      "ranks": {
+        "keyword": 1,
+        "vector": 1,
+        "hybrid": 1
+      },
+      "top": {
+        "keyword": [
+          "Receipt printers and kitchen display > Kitchen display (KDS)"
+        ],
+        "vector": [
+          "Receipt printers and kitchen display > Kitchen display (KDS)",
+          "Reader locked with K-415",
+          "Card readers > Error codes"
+        ],
+        "hybrid": [
+          "Receipt printers and kitchen display > Kitchen display (KDS)",
+          "Reader locked with K-415",
+          "Card readers > Error codes"
+        ]
+      },
+      "top_similarity": 0.6199171584918725
+    },
+    {
+      "id": "photo-limit",
+      "type": "exact",
+      "question": "photo larger than 5 MB",
+      "expect": [
+        "Online ordering and menu sync > Sync errors"
+      ],
+      "ranks": {
+        "keyword": 1,
+        "vector": 8,
+        "hybrid": 1
+      },
+      "top": {
+        "keyword": [
+          "Online ordering and menu sync > Sync errors"
+        ],
+        "vector": [
+          "Receipt printers and kitchen display > Supported printers",
+          "Receipt printers and kitchen display > Kitchen display (KDS)",
+          "Card readers > Status lights"
+        ],
+        "hybrid": [
+          "Online ordering and menu sync > Sync errors",
+          "Receipt printers and kitchen display > Supported printers",
+          "Receipt printers and kitchen display > Kitchen display (KDS)"
+        ]
+      },
+      "top_similarity": 0.5641432159927502
+    },
+    {
+      "id": "offline-limit",
+      "type": "exact",
+      "question": "offline payments 100 USD limit",
+      "expect": [
+        "Card readers > Offline mode"
+      ],
+      "ranks": {
+        "keyword": null,
+        "vector": 1,
+        "hybrid": 1
+      },
+      "top": {
+        "keyword": [],
+        "vector": [
+          "Card readers > Offline mode",
+          "Payouts and fees > Fees",
+          "Refunds and chargebacks > Chargebacks"
+        ],
+        "hybrid": [
+          "Card readers > Offline mode",
+          "Payouts and fees > Fees",
+          "Refunds and chargebacks > Chargebacks"
+        ]
+      },
+      "top_similarity": 0.7587608633579384
+    },
+    {
+      "id": "wifi-down",
+      "type": "paraphrase",
+      "question": "our wifi keeps dropping, can we still take cards?",
+      "expect": [
+        "Card readers > Offline mode"
+      ],
+      "ranks": {
+        "keyword": null,
+        "vector": 1,
+        "hybrid": 1
+      },
+      "top": {
+        "keyword": [],
+        "vector": [
+          "Card readers > Offline mode",
+          "Card readers > Status lights",
+          "Reader locked with K-415"
+        ],
+        "hybrid": [
+          "Card readers > Offline mode",
+          "Card readers > Status lights",
+          "Reader locked with K-415"
+        ]
+      },
+      "top_similarity": 0.7330491165235925
+    },
+    {
+      "id": "orange-light",
+      "type": "paraphrase",
+      "question": "the little light on the reader is orange and flashing",
+      "expect": [
+        "Card readers > Status lights"
+      ],
+      "ranks": {
+        "keyword": null,
+        "vector": 1,
+        "hybrid": 1
+      },
+      "top": {
+        "keyword": [],
+        "vector": [
+          "Card readers > Status lights",
+          "Card readers > Pairing a reader",
+          "Reader locked with K-415"
+        ],
+        "hybrid": [
+          "Card readers > Status lights",
+          "Card readers > Pairing a reader",
+          "Reader locked with K-415"
+        ]
+      },
+      "top_similarity": 0.7180145856760364
+    },
+    {
+      "id": "when-paid",
+      "type": "paraphrase",
+      "question": "how long until card sales hit my bank account",
+      "expect": [
+        "Payouts and fees > Payout schedule",
+        "When do weekend sales arrive?"
+      ],
+      "ranks": {
+        "keyword": null,
+        "vector": 1,
+        "hybrid": 1
+      },
+      "top": {
+        "keyword": [],
+        "vector": [
+          "Payouts and fees > Payout schedule",
+          "When do weekend sales arrive?",
+          "Card readers > Offline mode"
+        ],
+        "hybrid": [
+          "Payouts and fees > Payout schedule",
+          "When do weekend sales arrive?",
+          "Card readers > Offline mode"
+        ]
+      },
+      "top_similarity": 0.7640666680415528
+    },
+    {
+      "id": "money-held",
+      "type": "paraphrase",
+      "question": "why is my money being held back",
+      "expect": [
+        "Payouts and fees > Payout holds"
+      ],
+      "ranks": {
+        "keyword": null,
+        "vector": 1,
+        "hybrid": 1
+      },
+      "top": {
+        "keyword": [],
+        "vector": [
+          "Payouts and fees > Payout holds",
+          "Refunds and chargebacks > Chargebacks",
+          "Reader locked with K-415"
+        ],
+        "hybrid": [
+          "Payouts and fees > Payout holds",
+          "Refunds and chargebacks > Chargebacks",
+          "Reader locked with K-415"
+        ]
+      },
+      "top_similarity": 0.6273742540255733
+    },
+    {
+      "id": "dispute",
+      "type": "paraphrase",
+      "question": "a customer disputed a charge with their bank",
+      "expect": [
+        "Refunds and chargebacks > Chargebacks"
+      ],
+      "ranks": {
+        "keyword": null,
+        "vector": 1,
+        "hybrid": 1
+      },
+      "top": {
+        "keyword": [],
+        "vector": [
+          "Refunds and chargebacks > Chargebacks",
+          "Payouts and fees > Payout holds",
+          "Card readers > Offline mode"
+        ],
+        "hybrid": [
+          "Refunds and chargebacks > Chargebacks",
+          "Payouts and fees > Payout holds",
+          "Card readers > Offline mode"
+        ]
+      },
+      "top_similarity": 0.7546709551015617
+    },
+    {
+      "id": "partial-refund",
+      "type": "paraphrase",
+      "question": "can I give someone their money back for just one item",
+      "expect": [
+        "Refunds and chargebacks > Refunds"
+      ],
+      "ranks": {
+        "keyword": null,
+        "vector": 2,
+        "hybrid": 2
+      },
+      "top": {
+        "keyword": [],
+        "vector": [
+          "Refunds and chargebacks > Chargebacks",
+          "Refunds and chargebacks > Refunds",
+          "Payouts and fees > Payout holds"
+        ],
+        "hybrid": [
+          "Refunds and chargebacks > Chargebacks",
+          "Refunds and chargebacks > Refunds",
+          "Payouts and fees > Payout holds"
+        ]
+      },
+      "top_similarity": 0.6745278246278753
+    },
+    {
+      "id": "refund-new-card",
+      "type": "paraphrase",
+      "question": "customer lost her card, can the refund go to her new one",
+      "expect": [
+        "Refunds and chargebacks > Refunds"
+      ],
+      "ranks": {
+        "keyword": null,
+        "vector": 2,
+        "hybrid": 2
+      },
+      "top": {
+        "keyword": [],
+        "vector": [
+          "Refunds and chargebacks > Chargebacks",
+          "Refunds and chargebacks > Refunds",
+          "Owner lost their two-step verification phone"
+        ],
+        "hybrid": [
+          "Refunds and chargebacks > Chargebacks",
+          "Refunds and chargebacks > Refunds",
+          "Owner lost their two-step verification phone"
+        ]
+      },
+      "top_similarity": 0.701175573573328
+    },
+    {
+      "id": "cash-refund",
+      "type": "paraphrase",
+      "question": "can Kettle send the customer cash instead of refunding the card",
+      "expect": [
+        "Refunds and chargebacks > Refunds"
+      ],
+      "ranks": {
+        "keyword": null,
+        "vector": 1,
+        "hybrid": 1
+      },
+      "top": {
+        "keyword": [],
+        "vector": [
+          "Refunds and chargebacks > Refunds",
+          "Refunds and chargebacks > Chargebacks",
+          "Card readers"
+        ],
+        "hybrid": [
+          "Refunds and chargebacks > Refunds",
+          "Refunds and chargebacks > Chargebacks",
+          "Card readers"
+        ]
+      },
+      "top_similarity": 0.7866960430356275
+    },
+    {
+      "id": "price-per-sale",
+      "type": "paraphrase",
+      "question": "how much do you take from each sale",
+      "expect": [
+        "Payouts and fees > Fees"
+      ],
+      "ranks": {
+        "keyword": null,
+        "vector": 2,
+        "hybrid": 2
+      },
+      "top": {
+        "keyword": [],
+        "vector": [
+          "Payouts and fees > Payout schedule",
+          "Payouts and fees > Fees",
+          "Refunds and chargebacks > Refunds"
+        ],
+        "hybrid": [
+          "Payouts and fees > Payout schedule",
+          "Payouts and fees > Fees",
+          "Refunds and chargebacks > Refunds"
+        ]
+      },
+      "top_similarity": 0.667581677682254
+    },
+    {
+      "id": "tips-staff",
+      "type": "paraphrase",
+      "question": "do my baristas get the tips customers add on the card machine",
+      "expect": [
+        "Payouts and fees > Tips"
+      ],
+      "ranks": {
+        "keyword": null,
+        "vector": 1,
+        "hybrid": 1
+      },
+      "top": {
+        "keyword": [],
+        "vector": [
+          "Payouts and fees > Tips",
+          "Card readers > Status lights",
+          "Card readers > Offline mode"
+        ],
+        "hybrid": [
+          "Payouts and fees > Tips",
+          "Card readers > Status lights",
+          "Card readers > Offline mode"
+        ]
+      },
+      "top_similarity": 0.7057469592011838
+    },
+    {
+      "id": "sold-out",
+      "type": "paraphrase",
+      "question": "we ran out of croissants, how do I hide them from the menu",
+      "expect": [
+        "Online ordering and menu sync > Sold-out items"
+      ],
+      "ranks": {
+        "keyword": null,
+        "vector": 1,
+        "hybrid": 1
+      },
+      "top": {
+        "keyword": [],
+        "vector": [
+          "Online ordering and menu sync > Sold-out items",
+          "Receipt printers and kitchen display > Kitchen display (KDS)",
+          "Online ordering and menu sync > How menus sync"
+        ],
+        "hybrid": [
+          "Online ordering and menu sync > Sold-out items",
+          "Receipt printers and kitchen display > Kitchen display (KDS)",
+          "Online ordering and menu sync > How menus sync"
+        ]
+      },
+      "top_similarity": 0.5977515160367411
+    },
+    {
+      "id": "menu-rejected",
+      "type": "paraphrase",
+      "question": "the delivery app won't accept our menu",
+      "expect": [
+        "Online ordering and menu sync > Sync errors"
+      ],
+      "ranks": {
+        "keyword": null,
+        "vector": 1,
+        "hybrid": 1
+      },
+      "top": {
+        "keyword": [],
+        "vector": [
+          "Online ordering and menu sync > Sync errors",
+          "Modifier options missing on delivery partners",
+          "Online ordering and menu sync > How menus sync"
+        ],
+        "hybrid": [
+          "Online ordering and menu sync > Sync errors",
+          "Modifier options missing on delivery partners",
+          "Online ordering and menu sync > How menus sync"
+        ]
+      },
+      "top_similarity": 0.6977498960644875
+    },
+    {
+      "id": "prices-not-updated",
+      "type": "paraphrase",
+      "question": "I changed prices but the till still shows the old ones",
+      "expect": [
+        "Online ordering and menu sync > How menus sync"
+      ],
+      "ranks": {
+        "keyword": null,
+        "vector": 11,
+        "hybrid": 11
+      },
+      "top": {
+        "keyword": [],
+        "vector": [
+          "Online ordering and menu sync > Sold-out items",
+          "Staff accounts and security > Bank details",
+          "Receipt printers and kitchen display > Kitchen display (KDS)"
+        ],
+        "hybrid": [
+          "Online ordering and menu sync > Sold-out items",
+          "Staff accounts and security > Bank details",
+          "Receipt printers and kitchen display > Kitchen display (KDS)"
+        ]
+      },
+      "top_similarity": 0.6032840183510142
+    },
+    {
+      "id": "no-receipts",
+      "type": "paraphrase",
+      "question": "receipts stopped coming out",
+      "expect": [
+        "Receipt printers and kitchen display > Printer not printing"
+      ],
+      "ranks": {
+        "keyword": null,
+        "vector": 3,
+        "hybrid": 3
+      },
+      "top": {
+        "keyword": [],
+        "vector": [
+          "Receipt printers and kitchen display > Kitchen display (KDS)",
+          "Online ordering and menu sync > Sold-out items",
+          "Receipt printers and kitchen display > Printer not printing"
+        ],
+        "hybrid": [
+          "Receipt printers and kitchen display > Kitchen display (KDS)",
+          "Online ordering and menu sync > Sold-out items",
+          "Receipt printers and kitchen display > Printer not printing"
+        ]
+      },
+      "top_similarity": 0.6676201820373725
+    },
+    {
+      "id": "kitchen-screen",
+      "type": "paraphrase",
+      "question": "the screen in the kitchen isn't showing new orders",
+      "expect": [
+        "Receipt printers and kitchen display > Kitchen display (KDS)"
+      ],
+      "ranks": {
+        "keyword": null,
+        "vector": 1,
+        "hybrid": 1
+      },
+      "top": {
+        "keyword": [],
+        "vector": [
+          "Receipt printers and kitchen display > Kitchen display (KDS)",
+          "Receipt printers and kitchen display > Printer not printing",
+          "Online ordering and menu sync > How menus sync"
+        ],
+        "hybrid": [
+          "Receipt printers and kitchen display > Kitchen display (KDS)",
+          "Receipt printers and kitchen display > Printer not printing",
+          "Online ordering and menu sync > How menus sync"
+        ]
+      },
+      "top_similarity": 0.7800737475997442
+    },
+    {
+      "id": "which-printer",
+      "type": "paraphrase",
+      "question": "what kind of printer should I buy",
+      "expect": [
+        "Receipt printers and kitchen display > Supported printers"
+      ],
+      "ranks": {
+        "keyword": null,
+        "vector": 1,
+        "hybrid": 1
+      },
+      "top": {
+        "keyword": [],
+        "vector": [
+          "Receipt printers and kitchen display > Supported printers",
+          "Receipt printers and kitchen display > Printer not printing",
+          "Receipt printers and kitchen display > Kitchen display (KDS)"
+        ],
+        "hybrid": [
+          "Receipt printers and kitchen display > Supported printers",
+          "Receipt printers and kitchen display > Printer not printing",
+          "Receipt printers and kitchen display > Kitchen display (KDS)"
+        ]
+      },
+      "top_similarity": 0.6594050900178307
+    },
+    {
+      "id": "wrong-pin",
+      "type": "paraphrase",
+      "question": "a cashier typed the wrong code too many times and can't get in",
+      "expect": [
+        "Staff accounts and security > Logging in on the POS"
+      ],
+      "ranks": {
+        "keyword": null,
+        "vector": 3,
+        "hybrid": 3
+      },
+      "top": {
+        "keyword": [],
+        "vector": [
+          "Reader locked with K-415",
+          "Card readers > Error codes",
+          "Staff accounts and security > Logging in on the POS"
+        ],
+        "hybrid": [
+          "Reader locked with K-415",
+          "Card readers > Error codes",
+          "Staff accounts and security > Logging in on the POS"
+        ]
+      },
+      "top_similarity": 0.6710462578021761
+    },
+    {
+      "id": "cashier-vs-manager",
+      "type": "paraphrase",
+      "question": "what can a cashier do compared to a manager",
+      "expect": [
+        "Staff accounts and security > Roles"
+      ],
+      "ranks": {
+        "keyword": null,
+        "vector": 1,
+        "hybrid": 1
+      },
+      "top": {
+        "keyword": [],
+        "vector": [
+          "Staff accounts and security > Roles",
+          "Payouts and fees > Tips",
+          "Refunds and chargebacks > Chargebacks"
+        ],
+        "hybrid": [
+          "Staff accounts and security > Roles",
+          "Payouts and fees > Tips",
+          "Refunds and chargebacks > Chargebacks"
+        ]
+      },
+      "top_similarity": 0.6966844174250242
+    },
+    {
+      "id": "payout-account-changed",
+      "type": "paraphrase",
+      "question": "someone changed where our payouts are sent",
+      "expect": [
+        "Staff accounts and security > Bank details"
+      ],
+      "ranks": {
+        "keyword": null,
+        "vector": 1,
+        "hybrid": 1
+      },
+      "top": {
+        "keyword": [],
+        "vector": [
+          "Staff accounts and security > Bank details",
+          "Payouts and fees > Payout holds",
+          "Payouts and fees > Tips"
+        ],
+        "hybrid": [
+          "Staff accounts and security > Bank details",
+          "Payouts and fees > Payout holds",
+          "Payouts and fees > Tips"
+        ]
+      },
+      "top_similarity": 0.7200861382176433
+    },
+    {
+      "id": "connect-reader",
+      "type": "paraphrase",
+      "question": "how do I connect a new card machine to the tablet",
+      "expect": [
+        "Card readers > Pairing a reader"
+      ],
+      "ranks": {
+        "keyword": null,
+        "vector": 1,
+        "hybrid": 1
+      },
+      "top": {
+        "keyword": [],
+        "vector": [
+          "Card readers > Pairing a reader",
+          "Card readers > Status lights",
+          "Card readers"
+        ],
+        "hybrid": [
+          "Card readers > Pairing a reader",
+          "Card readers > Status lights",
+          "Card readers"
+        ]
+      },
+      "top_similarity": 0.7197783445255219
+    },
+    {
+      "id": "which-readers",
+      "type": "paraphrase",
+      "question": "which card machines work with Kettle",
+      "expect": [
+        "Card readers"
+      ],
+      "ranks": {
+        "keyword": null,
+        "vector": 1,
+        "hybrid": 1
+      },
+      "top": {
+        "keyword": [],
+        "vector": [
+          "Card readers",
+          "Receipt printers and kitchen display > Supported printers",
+          "Card readers > Error codes"
+        ],
+        "hybrid": [
+          "Card readers",
+          "Receipt printers and kitchen display > Supported printers",
+          "Card readers > Error codes"
+        ]
+      },
+      "top_similarity": 0.8007029300206172
+    },
+    {
+      "id": "reader-tampered",
+      "type": "ticket",
+      "question": "the reader says it was tampered with and is locked, can you unlock it",
+      "expect": [
+        "Reader locked with K-415",
+        "Card readers > Error codes"
+      ],
+      "ranks": {
+        "keyword": null,
+        "vector": 1,
+        "hybrid": 1
+      },
+      "top": {
+        "keyword": [],
+        "vector": [
+          "Reader locked with K-415",
+          "Card readers > Error codes",
+          "Card readers > Pairing a reader"
+        ],
+        "hybrid": [
+          "Reader locked with K-415",
+          "Card readers > Error codes",
+          "Card readers > Pairing a reader"
+        ]
+      },
+      "top_similarity": 0.7882803678512798
+    },
+    {
+      "id": "friday-sales",
+      "type": "ticket",
+      "question": "Friday's takings still aren't in the bank on Monday",
+      "expect": [
+        "When do weekend sales arrive?",
+        "Payouts and fees > Payout schedule"
+      ],
+      "ranks": {
+        "keyword": null,
+        "vector": 1,
+        "hybrid": 1
+      },
+      "top": {
+        "keyword": [],
+        "vector": [
+          "When do weekend sales arrive?",
+          "Payouts and fees > Payout schedule",
+          "Payouts and fees > Payout holds"
+        ],
+        "hybrid": [
+          "When do weekend sales arrive?",
+          "Payouts and fees > Payout schedule",
+          "Payouts and fees > Payout holds"
+        ]
+      },
+      "top_similarity": 0.7207370899789781
+    },
+    {
+      "id": "owner-lost-phone",
+      "type": "ticket",
+      "question": "owner lost their phone and can't get the login code, please switch it off",
+      "expect": [
+        "Owner lost their two-step verification phone",
+        "Staff accounts and security > Two-step verification"
+      ],
+      "ranks": {
+        "keyword": null,
+        "vector": 1,
+        "hybrid": 1
+      },
+      "top": {
+        "keyword": [],
+        "vector": [
+          "Owner lost their two-step verification phone",
+          "Staff accounts and security > Two-step verification",
+          "Staff accounts and security > Logging in on the POS"
+        ],
+        "hybrid": [
+          "Owner lost their two-step verification phone",
+          "Staff accounts and security > Two-step verification",
+          "Staff accounts and security > Logging in on the POS"
+        ]
+      },
+      "top_similarity": 0.7736476738310846
+    },
+    {
+      "id": "milk-options-missing",
+      "type": "ticket",
+      "question": "only some of our drink options appear on the delivery partner's app",
+      "expect": [
+        "Modifier options missing on delivery partners",
+        "Online ordering and menu sync > Modifiers"
+      ],
+      "ranks": {
+        "keyword": null,
+        "vector": 1,
+        "hybrid": 1
+      },
+      "top": {
+        "keyword": [],
+        "vector": [
+          "Modifier options missing on delivery partners",
+          "Online ordering and menu sync > Modifiers",
+          "Online ordering and menu sync > How menus sync"
+        ],
+        "hybrid": [
+          "Modifier options missing on delivery partners",
+          "Online ordering and menu sync > Modifiers",
+          "Online ordering and menu sync > How menus sync"
+        ]
+      },
+      "top_similarity": 0.7790415224556706
+    },
+    {
+      "id": "export-accounting",
+      "type": "unanswerable",
+      "question": "can we export daily sales to Ledgerly",
+      "expect": [],
+      "ranks": {
+        "keyword": null,
+        "vector": null,
+        "hybrid": null
+      },
+      "top": {
+        "keyword": [],
+        "vector": [
+          "Payouts and fees > Payout schedule",
+          "When do weekend sales arrive?",
+          "Payouts and fees > Payout holds"
+        ],
+        "hybrid": [
+          "Payouts and fees > Payout schedule",
+          "When do weekend sales arrive?",
+          "Payouts and fees > Payout holds"
+        ]
+      },
+      "top_similarity": 0.5869175195694136
+    },
+    {
+      "id": "dark-mode",
+      "type": "unanswerable",
+      "question": "is there a dark mode for the POS",
+      "expect": [],
+      "ranks": {
+        "keyword": null,
+        "vector": null,
+        "hybrid": null
+      },
+      "top": {
+        "keyword": [],
+        "vector": [
+          "Card readers > Pairing a reader",
+          "Staff accounts and security > Logging in on the POS",
+          "Online ordering and menu sync > Sold-out items"
+        ],
+        "hybrid": [
+          "Card readers > Pairing a reader",
+          "Staff accounts and security > Logging in on the POS",
+          "Online ordering and menu sync > Sold-out items"
+        ]
+      },
+      "top_similarity": 0.6287663136442126
+    },
+    {
+      "id": "scheduling",
+      "type": "unanswerable",
+      "question": "how do I set up employee shift scheduling",
+      "expect": [],
+      "ranks": {
+        "keyword": null,
+        "vector": null,
+        "hybrid": null
+      },
+      "top": {
+        "keyword": [],
+        "vector": [
+          "Online ordering and menu sync > How menus sync",
+          "Staff accounts and security > Logging in on the POS",
+          "Card readers > Pairing a reader"
+        ],
+        "hybrid": [
+          "Online ordering and menu sync > How menus sync",
+          "Staff accounts and security > Logging in on the POS",
+          "Card readers > Pairing a reader"
+        ]
+      },
+      "top_similarity": 0.5844932941508374
+    },
+    {
+      "id": "router-password",
+      "type": "unanswerable",
+      "question": "how do I reset my wifi router password",
+      "expect": [],
+      "ranks": {
+        "keyword": null,
+        "vector": null,
+        "hybrid": null
+      },
+      "top": {
+        "keyword": [],
+        "vector": [
+          "Owner lost their two-step verification phone",
+          "Staff accounts and security > Two-step verification",
+          "Staff accounts and security > Logging in on the POS"
+        ],
+        "hybrid": [
+          "Owner lost their two-step verification phone",
+          "Staff accounts and security > Two-step verification",
+          "Staff accounts and security > Logging in on the POS"
+        ]
+      },
+      "top_similarity": 0.6254069952701391
+    },
+    {
+      "id": "banana-bread",
+      "type": "unanswerable",
+      "question": "banana bread recipe",
+      "expect": [],
+      "ranks": {
+        "keyword": null,
+        "vector": null,
+        "hybrid": null
+      },
+      "top": {
+        "keyword": [],
+        "vector": [
+          "Receipt printers and kitchen display > Kitchen display (KDS)",
+          "Card readers > Error codes",
+          "Online ordering and menu sync > Modifiers"
+        ],
+        "hybrid": [
+          "Receipt printers and kitchen display > Kitchen display (KDS)",
+          "Card readers > Error codes",
+          "Online ordering and menu sync > Modifiers"
+        ]
+      },
+      "top_similarity": 0.47450252911497826
+    },
+    {
+      "id": "harbor-books-returns",
+      "type": "unanswerable",
+      "question": "can I return a book within 30 days",
+      "expect": [],
+      "ranks": {
+        "keyword": null,
+        "vector": null,
+        "hybrid": null
+      },
+      "top": {
+        "keyword": [],
+        "vector": [
+          "Refunds and chargebacks > Refunds",
+          "When do weekend sales arrive?",
+          "Refunds and chargebacks > Chargebacks"
+        ],
+        "hybrid": [
+          "Refunds and chargebacks > Refunds",
+          "When do weekend sales arrive?",
+          "Refunds and chargebacks > Chargebacks"
+        ]
+      },
+      "top_similarity": 0.6815007624930163
+    },
+    {
+      "id": "harbor-signed-copies",
+      "type": "unanswerable",
+      "question": "are signed copies final sale",
+      "expect": [],
+      "ranks": {
+        "keyword": null,
+        "vector": null,
+        "hybrid": null
+      },
+      "top": {
+        "keyword": [],
+        "vector": [
+          "Online ordering and menu sync > Sold-out items",
+          "Card readers > Offline mode",
+          "Payouts and fees > Payout schedule"
+        ],
+        "hybrid": [
+          "Online ordering and menu sync > Sold-out items",
+          "Card readers > Offline mode",
+          "Payouts and fees > Payout schedule"
+        ]
+      },
+      "top_similarity": 0.5935499491229798
+    },
+    {
+      "id": "gift-card-expiry",
+      "type": "unanswerable",
+      "question": "do gift cards expire",
+      "expect": [],
+      "ranks": {
+        "keyword": null,
+        "vector": null,
+        "hybrid": null
+      },
+      "top": {
+        "keyword": [],
+        "vector": [
+          "Card readers > Offline mode",
+          "Refunds and chargebacks > Refunds",
+          "Payouts and fees > Tips"
+        ],
+        "hybrid": [
+          "Card readers > Offline mode",
+          "Refunds and chargebacks > Refunds",
+          "Payouts and fees > Tips"
+        ]
+      },
+      "top_similarity": 0.6320468251886587
+    },
+    {
+      "id": "loyalty-transfer",
+      "type": "unanswerable",
+      "question": "can loyalty points move between our different brands",
+      "expect": [],
+      "ranks": {
+        "keyword": null,
+        "vector": null,
+        "hybrid": null
+      },
+      "top": {
+        "keyword": [],
+        "vector": [
+          "Online ordering and menu sync > Modifiers",
+          "Online ordering and menu sync > How menus sync",
+          "Staff accounts and security > Bank details"
+        ],
+        "hybrid": [
+          "Online ordering and menu sync > Modifiers",
+          "Online ordering and menu sync > How menus sync",
+          "Staff accounts and security > Bank details"
+        ]
+      },
+      "top_similarity": 0.5805321623798039
+    },
+    {
+      "id": "hardware-insurance",
+      "type": "unanswerable",
+      "question": "does Kettle insure our tablets against theft",
+      "expect": [],
+      "ranks": {
+        "keyword": null,
+        "vector": null,
+        "hybrid": null
+      },
+      "top": {
+        "keyword": [],
+        "vector": [
+          "Card readers",
+          "Payouts and fees > Payout holds",
+          "Refunds and chargebacks > Chargebacks"
+        ],
+        "hybrid": [
+          "Card readers",
+          "Payouts and fees > Payout holds",
+          "Refunds and chargebacks > Chargebacks"
+        ]
+      },
+      "top_similarity": 0.654350352159514
+    }
+  ]
+}

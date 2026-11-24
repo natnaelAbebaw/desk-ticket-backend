@@ -1,0 +1,198 @@
+# Holdout questions for the Kettle & Co demo workspace.
+#
+# Same format and labels as kettle-demo.yaml (read its header first). The difference is
+# how the file may be used: search settings and the similarity cutoff are chosen on
+# kettle-demo.yaml and only checked here. Tuning on these questions would make them as
+# flattering as the ones they are meant to check, so do not edit a case because search
+# got it wrong; fix a case only if its label is factually wrong.
+#
+# Written from the documents, before any of these questions was run through search.
+#
+# Run with: make eval-holdout
+
+workspace: kettle-demo
+
+cases:
+  # ------------------------------------------------------------------ exact
+  # Several put the code inside a sentence, the way people actually write tickets.
+  - id: h-code-k207-sentence
+    type: exact
+    question: "reader shows K-207, what should I do"
+    expect: ["Card readers > Error codes"]
+
+  - id: h-code-k101-bare
+    type: exact
+    question: "K-101"
+    expect: ["Card readers > Error codes"]
+
+  - id: h-code-k415-sentence
+    type: exact
+    question: "our K2 Go is showing K-415 since this morning"
+    expect: ["Card readers > Error codes", "Reader locked with K-415"]
+
+  - id: h-code-k310-sentence
+    type: exact
+    question: "update stuck with error K-310 on the handheld"
+    expect: ["Card readers > Error codes"]
+
+  - id: h-self-test
+    type: exact
+    question: "print a self-test"
+    expect: ["Receipt printers and kitchen display > Printer not printing"]
+
+  - id: h-usb
+    type: exact
+    question: "USB printer K-Station"
+    expect: ["Receipt printers and kitchen display > Supported printers"]
+
+  - id: h-86
+    type: exact
+    question: "how to mark an item as 86'd"
+    expect: ["Online ordering and menu sync > Sold-out items"]
+
+  - id: h-risk-team
+    type: exact
+    question: "risk team payout hold"
+    expect: ["Payouts and fees > Payout holds"]
+
+  # ------------------------------------------------------------------ paraphrase
+  - id: h-refund-deadline
+    type: paraphrase
+    question: "is there a time limit for giving customers their money back"
+    expect: ["Refunds and chargebacks > Refunds"]
+
+  - id: h-fight-reversal
+    type: paraphrase
+    question: "what proof do I need to fight a payment reversal"
+    expect: ["Refunds and chargebacks > Chargebacks"]
+
+  - id: h-fee-on-refund
+    type: paraphrase
+    question: "does Kettle keep its cut when I refund an order"
+    expect: ["Payouts and fees > Fees"]
+
+  - id: h-second-shop
+    type: paraphrase
+    question: "how much extra is it to add a second shop"
+    expect: ["Payouts and fees > Fees"]
+
+  - id: h-offline-loss
+    type: paraphrase
+    question: "the internet went out and later a payment bounced, who eats the loss"
+    expect: ["Card readers > Offline mode"]
+
+  - id: h-red-light
+    type: paraphrase
+    question: "there's a red light on my card machine"
+    expect: ["Card readers > Status lights"]
+
+  - id: h-share-reader
+    type: paraphrase
+    question: "can two tablets share one reader"
+    expect: ["Card readers > Pairing a reader"]
+
+  - id: h-slow-delivery-menu
+    type: paraphrase
+    question: "new menu items take ages to show up on the delivery app"
+    expect:
+      - "Online ordering and menu sync > How menus sync"
+      - "Online ordering and menu sync > Sync errors"
+
+  - id: h-force-milk-choice
+    type: paraphrase
+    question: "can I make customers pick a milk before ordering"
+    expect: ["Online ordering and menu sync > Modifiers"]
+
+  - id: h-muffins-return
+    type: paraphrase
+    question: "will yesterday's muffins come back on the menu by themselves"
+    expect: ["Online ordering and menu sync > Sold-out items"]
+
+  - id: h-other-store-code
+    type: paraphrase
+    question: "new hire can't sign in at our other store with her code"
+    expect: ["Staff accounts and security > Logging in on the POS"]
+
+  - id: h-trainee-refund
+    type: paraphrase
+    question: "a trainee needs to undo a payment, who has to approve it"
+    expect: ["Staff accounts and security > Roles"]
+
+  - id: h-red-orders
+    type: paraphrase
+    question: "kitchen orders are turning red, what does that mean"
+    expect: ["Receipt printers and kitchen display > Kitchen display (KDS)"]
+
+  - id: h-blank-paper
+    type: paraphrase
+    question: "the printer feeds blank paper"
+    expect: ["Receipt printers and kitchen display > Printer not printing"]
+
+  # ------------------------------------------------------------------ ticket
+  - id: h-faster-money
+    type: ticket
+    question: "can I get my money faster than two days"
+    expect: ["When do weekend sales arrive?", "Payouts and fees > Payout schedule"]
+
+  - id: h-cards-until-replacement
+    type: ticket
+    question: "reader locked after someone opened it, how do we take cards until a new one comes"
+    expect: ["Reader locked with K-415", "Card readers > Error codes"]
+
+  - id: h-soy-missing
+    type: ticket
+    question: "soy is missing on the courier app, we have twelve milks"
+    expect:
+      - "Modifier options missing on delivery partners"
+      - "Online ordering and menu sync > Modifiers"
+
+  - id: h-2fa-by-email
+    type: ticket
+    question: "merchant we know well emailed asking us to disable 2FA"
+    expect:
+      - "Owner lost their two-step verification phone"
+      - "Staff accounts and security > Two-step verification"
+
+  # ------------------------------------------------------------------ unanswerable
+  - id: h-labels
+    type: unanswerable
+    question: "how do I print labels for coffee bags"
+    expect: []
+
+  # Looks like a known code, but no document has it: a strict keyword match must miss.
+  - id: h-code-k999
+    type: unanswerable
+    question: "K-999"
+    expect: []
+
+  - id: h-partner-commission
+    type: unanswerable
+    question: "what commission do delivery partners charge"
+    expect: []
+
+  - id: h-bitcoin
+    type: unanswerable
+    question: "can I take bitcoin"
+    expect: []
+
+  - id: h-payroll
+    type: unanswerable
+    question: "does Kettle integrate with payroll software"
+    expect: []
+
+  # Another tenant's subject (Harbor Books).
+  - id: h-damaged-book
+    type: unanswerable
+    question: "refund for a damaged book delivered by post"
+    expect: []
+
+  # Covered only by a pending document.
+  - id: h-gift-card-topup
+    type: unanswerable
+    question: "can a customer top up a gift card"
+    expect: []
+
+  - id: h-languages
+    type: unanswerable
+    question: "what languages does the POS app support"
+    expect: []
