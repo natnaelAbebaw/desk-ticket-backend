@@ -116,6 +116,66 @@ async def test_keyword_search_matches_word_forms(
     assert (await ws.search(client, "refund zebra", mode="keyword"))["hits"] == []
 
 
+async def test_hybrid_keyword_side_needs_every_word(
+    client: AsyncClient,
+    factory: async_sessionmaker[AsyncSession],
+    settings: Settings,
+    embedder: FakeEmbedder,
+) -> None:
+    """In fusion, keywords count only when every word matches (see SearchTuning). The
+    vector side still answers a question that has no strict keyword match."""
+    ws = await _workspace(client, factory, settings, embedder)
+    question = "how do I get a refund for my zebra"
+    assert (await ws.search(client, question, mode="keyword"))["hits"] == []
+
+    result = await ws.search(client, question, mode="hybrid")
+    by_heading = {hit["heading"]: hit for hit in result["hits"]}
+    assert by_heading["Billing guide > Refunds"]["keyword_rank"] is None
+    assert by_heading["Billing guide > Refunds"]["vector_rank"] is not None
+
+    # With every word present, the keyword side contributes.
+    result = await ws.search(client, "refunded payment", mode="hybrid")
+    by_heading = {hit["heading"]: hit for hit in result["hits"]}
+    assert by_heading["Billing guide > Refunds"]["keyword_rank"] == 1
+
+
+async def test_any_word_ranks_chunks_with_more_matching_words_first(
+    client: AsyncClient,
+    factory: async_sessionmaker[AsyncSession],
+    settings: Settings,
+    embedder: FakeEmbedder,
+) -> None:
+    ws = await _workspace(client, factory, settings, embedder)
+    # "payment" is in Refunds and Failed payments; "card", "retry", and "charge" only
+    # in Failed payments, so it has the most matches and ranks first. Any-word matching
+    # is used only without vectors, so take the model down.
+    app.dependency_overrides[get_embedder] = lambda: BrokenEmbedder()
+    result = await ws.search(client, "card payment retry charge", mode="hybrid", limit=10)
+    keyword_order = sorted(
+        (hit for hit in result["hits"] if hit["keyword_rank"]), key=lambda h: h["keyword_rank"]
+    )
+    assert keyword_order[0]["heading"] == "Billing guide > Failed payments"
+    assert "Billing guide > Refunds" in [hit["heading"] for hit in keyword_order]
+
+
+async def test_any_word_query_is_safe_with_odd_input(
+    client: AsyncClient,
+    factory: async_sessionmaker[AsyncSession],
+    settings: Settings,
+    embedder: FakeEmbedder,
+) -> None:
+    # Characters that are tsquery syntax (& | ! : ' ( )) must not cause a 500, and a
+    # query of only stop words or symbols just finds nothing on the keyword side.
+    ws = await _workspace(client, factory, settings, embedder)
+    # Both ways: strict matching with the model up, any-word matching with it down.
+    for broken in (False, True):
+        if broken:
+            app.dependency_overrides[get_embedder] = lambda: BrokenEmbedder()
+        for query in ["refund & | ! :* ' ( )", "the a of", "!!!", "E4021-"]:
+            result = await ws.search(client, query, mode="hybrid")
+            assert result["degraded"] is broken
+
+
 # Vector search
 
 
@@ -242,6 +302,8 @@ async def test_vectors_from_another_model_are_not_compared(
     # still returns the keyword side.
     assert (await ws.search(client, "refund", mode="keyword"))["hits"]
     assert (await ws.search(client, "refund"))["hits"]
+    # A full sentence too: with no vectors at all, hybrid matches any word.
+    assert (await ws.search(client, "how do I get a refund for my zebra"))["hits"]
 
 
 # Model outage
@@ -265,6 +327,10 @@ async def test_hybrid_falls_back_to_keywords_when_the_model_is_down(
     assert result["degraded"] is True
     assert _headings(result) == ["Billing guide > Refunds"]
     assert result["hits"][0]["vector_rank"] is None
+    # A sentence no chunk matches in full still finds something: the fallback matches
+    # any word, because there are no vectors to rely on.
+    result = await ws.search(client, "how do I get a refund for my zebra")
+    assert _headings(result)[0] == "Billing guide > Refunds"
 
     response = await client.post(
         f"{ws.url}/search", json={"query": "refund", "mode": "vector"}, headers=ws.owner.headers

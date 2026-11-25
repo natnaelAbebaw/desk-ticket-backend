@@ -1,4 +1,20 @@
 services:
+  # One-off job: bring the schema to head, then exit. The api and worker wait for it to
+  # finish successfully, so neither can query a table that does not exist yet. If a
+  # migration fails, both stay down and `docker compose logs migrate` shows why,
+  # instead of the worker crash-looping on "relation does not exist".
+  migrate:
+    build: .
+    entrypoint: ["alembic", "upgrade", "head"]
+    environment:
+      DATABASE_URL: postgresql+asyncpg://desk:desk@db:5432/desk
+      SECRET_KEY: ${SECRET_KEY:?set SECRET_KEY in .env}
+    env_file:
+      - .env
+    depends_on:
+      db:
+        condition: service_healthy
+
   api:
     build: .
     ports:
@@ -15,8 +31,10 @@ services:
       LOG_JSON: "true"
       SECRET_KEY: ${SECRET_KEY:?set SECRET_KEY in .env}
     depends_on:
-      db:
-        condition: service_healthy
+      # The entrypoint still runs `alembic upgrade head` (so the image works outside
+      # compose too); here it is a no-op because migrate already finished.
+      migrate:
+        condition: service_completed_successfully
       redis:
         condition: service_healthy
 
@@ -24,7 +42,7 @@ services:
   # SKIP LOCKED keeps the copies from taking the same job.
   worker:
     build: .
-    # Skips docker/entrypoint.sh: the api service runs migrations, the worker only chunks.
+    # Skips docker/entrypoint.sh: the migrate service runs migrations, the worker only chunks.
     entrypoint: ["python", "-m", "app.ingestion.worker"]
     env_file:
       - .env
@@ -34,14 +52,12 @@ services:
       OLLAMA_URL: http://ollama:11434
       LOG_JSON: "true"
       SECRET_KEY: ${SECRET_KEY:?set SECRET_KEY in .env}
-    # On first start the api may still be migrating; if the worker starts first and
-    # its query fails on a missing table, it exits and Docker restarts it.
+    # Restarts on real crashes (e.g. a lost DB connection); no longer needed to paper
+    # over a migration race, since migrate finishes before the worker starts.
     restart: unless-stopped
     depends_on:
-      db:
-        condition: service_healthy
-      api:
-        condition: service_started
+      migrate:
+        condition: service_completed_successfully
       # Waits for the model download to finish, so the first jobs do not fail with
       # "model not found".
       ollama-pull:

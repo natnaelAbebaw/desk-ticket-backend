@@ -20,6 +20,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
 from app.ingestion.chunking import chunk_document  # noqa: E402  (needs the path above)
+from app.seed.data import parse_doc  # noqa: E402
 
 HERE = Path(__file__).resolve().parent
 PREVIEW_CHARS = 100
@@ -29,7 +30,13 @@ def show(path: Path, *, full: bool) -> None:
     # The title becomes the first part of every heading path. The file name stands in
     # for the title the API caller would send.
     title = path.stem.replace("-", " ").capitalize()
-    chunks = chunk_document(title, path.read_text(encoding="utf-8"))
+    body = path.read_text(encoding="utf-8")
+    # Seed documents (app/seed/knowledge/) start with a --- header. Use its title and
+    # chunk only the body, exactly as `make seed` will.
+    if body.startswith("---\n"):
+        doc = parse_doc(path)
+        title, body = doc.title, doc.body
+    chunks = chunk_document(title, body)
     print(f"\n=== {path.name}: {len(chunks)} chunks (title {title!r})")
     for chunk in chunks:
         print(

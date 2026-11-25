@@ -1,0 +1,253 @@
+# Retrieval eval set for the Kettle & Co demo workspace (make seed).
+#
+# Each case is a question and the chunks that answer it, named by heading path
+# ("Source title > Section"); ticket answers are named by their title. A case passes
+# at k when ANY expected chunk is in the top k results, so list every chunk that
+# would be a good answer, not only the best one. Labels match headings exactly:
+# "Card readers" is only the article's introduction, not its sections.
+#
+# expect: [] marks a question the knowledge base cannot answer. Those are left out
+# of recall and MRR, and used to find the similarity cutoff for "I don't know".
+#
+# type:
+#   exact         uses the documents' own words or codes (keyword search's strength)
+#   paraphrase    customer wording that shares few words with the answer (vector's)
+#   ticket        answered best by a Q&A written from a resolved ticket
+#   unanswerable  nothing approved in this workspace answers it
+#
+# Run with `make eval` after `make seed-reset`. tests/test_retrieval_eval.py checks
+# that every expected label exists in the seeded data, so a renamed heading cannot
+# silently turn a case into a permanent miss.
+
+workspace: kettle-demo
+
+cases:
+  # ------------------------------------------------------------------ exact
+  - id: code-k310
+    type: exact
+    question: "K-310"
+    expect: ["Card readers > Error codes"]
+
+  - id: code-k101
+    type: exact
+    question: "K-101 reader not found"
+    expect: ["Card readers > Error codes"]
+
+  - id: code-k415
+    type: exact
+    question: "K-415"
+    expect: ["Card readers > Error codes", "Reader locked with K-415"]
+
+  - id: fee-rate
+    type: exact
+    question: "2.6 percent plus 10 cents"
+    expect: ["Payouts and fees > Fees"]
+
+  - id: instant-payout
+    type: exact
+    question: "instant payout fee"
+    expect: ["Payouts and fees > Payout schedule", "When do weekend sales arrive?"]
+
+  - id: chargeback-fee
+    type: exact
+    question: "chargeback fee 15 USD"
+    expect: ["Refunds and chargebacks > Chargebacks"]
+
+  - id: kds
+    type: exact
+    question: "KDS"
+    expect: ["Receipt printers and kitchen display > Kitchen display (KDS)"]
+
+  - id: photo-limit
+    type: exact
+    question: "photo larger than 5 MB"
+    expect: ["Online ordering and menu sync > Sync errors"]
+
+  - id: offline-limit
+    type: exact
+    question: "offline payments 100 USD limit"
+    expect: ["Card readers > Offline mode"]
+
+  # ------------------------------------------------------------------ paraphrase
+  - id: wifi-down
+    type: paraphrase
+    question: "our wifi keeps dropping, can we still take cards?"
+    expect: ["Card readers > Offline mode"]
+
+  - id: orange-light
+    type: paraphrase
+    question: "the little light on the reader is orange and flashing"
+    expect: ["Card readers > Status lights"]
+
+  - id: when-paid
+    type: paraphrase
+    question: "how long until card sales hit my bank account"
+    expect: ["Payouts and fees > Payout schedule", "When do weekend sales arrive?"]
+
+  - id: money-held
+    type: paraphrase
+    question: "why is my money being held back"
+    expect: ["Payouts and fees > Payout holds"]
+
+  - id: dispute
+    type: paraphrase
+    question: "a customer disputed a charge with their bank"
+    expect: ["Refunds and chargebacks > Chargebacks"]
+
+  - id: partial-refund
+    type: paraphrase
+    question: "can I give someone their money back for just one item"
+    expect: ["Refunds and chargebacks > Refunds"]
+
+  - id: refund-new-card
+    type: paraphrase
+    question: "customer lost her card, can the refund go to her new one"
+    expect: ["Refunds and chargebacks > Refunds"]
+
+  - id: cash-refund
+    type: paraphrase
+    question: "can Kettle send the customer cash instead of refunding the card"
+    expect: ["Refunds and chargebacks > Refunds"]
+
+  - id: price-per-sale
+    type: paraphrase
+    question: "how much do you take from each sale"
+    expect: ["Payouts and fees > Fees"]
+
+  - id: tips-staff
+    type: paraphrase
+    question: "do my baristas get the tips customers add on the card machine"
+    expect: ["Payouts and fees > Tips"]
+
+  - id: sold-out
+    type: paraphrase
+    question: "we ran out of croissants, how do I hide them from the menu"
+    expect: ["Online ordering and menu sync > Sold-out items"]
+
+  - id: menu-rejected
+    type: paraphrase
+    question: "the delivery app won't accept our menu"
+    expect: ["Online ordering and menu sync > Sync errors"]
+
+  - id: prices-not-updated
+    type: paraphrase
+    question: "I changed prices but the till still shows the old ones"
+    expect: ["Online ordering and menu sync > How menus sync"]
+
+  - id: no-receipts
+    type: paraphrase
+    question: "receipts stopped coming out"
+    expect: ["Receipt printers and kitchen display > Printer not printing"]
+
+  - id: kitchen-screen
+    type: paraphrase
+    question: "the screen in the kitchen isn't showing new orders"
+    expect: ["Receipt printers and kitchen display > Kitchen display (KDS)"]
+
+  - id: which-printer
+    type: paraphrase
+    question: "what kind of printer should I buy"
+    expect: ["Receipt printers and kitchen display > Supported printers"]
+
+  - id: wrong-pin
+    type: paraphrase
+    question: "a cashier typed the wrong code too many times and can't get in"
+    expect: ["Staff accounts and security > Logging in on the POS"]
+
+  - id: cashier-vs-manager
+    type: paraphrase
+    question: "what can a cashier do compared to a manager"
+    expect: ["Staff accounts and security > Roles"]
+
+  - id: payout-account-changed
+    type: paraphrase
+    question: "someone changed where our payouts are sent"
+    expect: ["Staff accounts and security > Bank details"]
+
+  - id: connect-reader
+    type: paraphrase
+    question: "how do I connect a new card machine to the tablet"
+    expect: ["Card readers > Pairing a reader"]
+
+  - id: which-readers
+    type: paraphrase
+    question: "which card machines work with Kettle"
+    expect: ["Card readers"]
+
+  # ------------------------------------------------------------------ ticket
+  - id: reader-tampered
+    type: ticket
+    question: "the reader says it was tampered with and is locked, can you unlock it"
+    expect: ["Reader locked with K-415", "Card readers > Error codes"]
+
+  - id: friday-sales
+    type: ticket
+    question: "Friday's takings still aren't in the bank on Monday"
+    expect: ["When do weekend sales arrive?", "Payouts and fees > Payout schedule"]
+
+  - id: owner-lost-phone
+    type: ticket
+    question: "owner lost their phone and can't get the login code, please switch it off"
+    expect:
+      - "Owner lost their two-step verification phone"
+      - "Staff accounts and security > Two-step verification"
+
+  - id: milk-options-missing
+    type: ticket
+    question: "only some of our drink options appear on the delivery partner's app"
+    expect:
+      - "Modifier options missing on delivery partners"
+      - "Online ordering and menu sync > Modifiers"
+
+  # ------------------------------------------------------------------ unanswerable
+  - id: export-accounting
+    type: unanswerable
+    question: "can we export daily sales to Ledgerly"
+    expect: []
+
+  - id: dark-mode
+    type: unanswerable
+    question: "is there a dark mode for the POS"
+    expect: []
+
+  - id: scheduling
+    type: unanswerable
+    question: "how do I set up employee shift scheduling"
+    expect: []
+
+  - id: router-password
+    type: unanswerable
+    question: "how do I reset my wifi router password"
+    expect: []
+
+  - id: banana-bread
+    type: unanswerable
+    question: "banana bread recipe"
+    expect: []
+
+  # Answered only by another tenant (Harbor Books): must stay unanswerable here.
+  - id: harbor-books-returns
+    type: unanswerable
+    question: "can I return a book within 30 days"
+    expect: []
+
+  - id: harbor-signed-copies
+    type: unanswerable
+    question: "are signed copies final sale"
+    expect: []
+
+  # Answered only by knowledge that is pending or rejected: must stay hidden.
+  - id: gift-card-expiry
+    type: unanswerable
+    question: "do gift cards expire"
+    expect: []
+
+  - id: loyalty-transfer
+    type: unanswerable
+    question: "can loyalty points move between our different brands"
+    expect: []
+
+  - id: hardware-insurance
+    type: unanswerable
+    question: "does Kettle insure our tablets against theft"
+    expect: []

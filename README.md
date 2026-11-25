@@ -159,11 +159,37 @@ After syncing a source's chunks, the worker gives each chunk a vector, so search
 
 `POST /api/v1/workspaces/{workspace_id}/knowledge/search` with `{"query": "...", "mode": "hybrid", "limit": 5}`. Owners, admins, and agents can search; results come only from the caller's workspace.
 
-- **Keyword.** Postgres full-text search over a generated `tsvector` column (GIN index). Words are stemmed (`refunded` matches `refund`), heading matches rank above content matches, and the query accepts search-box syntax: `"exact phrase"`, `or`, `-exclude`. Best for exact terms such as error codes.
+- **Keyword.** Postgres full-text search over a generated `tsvector` column (GIN index). Words are stemmed (`refunded` matches `refund`), heading matches rank above content matches, and the query accepts search-box syntax: `"exact phrase"`, `or`, `-exclude`. Every word must match, so it is best for exact terms such as error codes.
 - **Vector.** The question is embedded with the same model as the chunks and compared by cosine distance through an HNSW index. Best for meaning: "get my money back" finds the refund policy. Vector search always returns the nearest chunks, even weak ones; deciding what is too weak to answer from belongs to answer generation.
-- **Hybrid** (default). Both searches return 50 candidates, merged with Reciprocal Rank Fusion: each chunk scores `1/(60 + rank)` per list it appears in, so chunks found by both rise to the top. Each hit includes `keyword_rank` and `vector_rank` to show why it ranked where it did.
+- **Hybrid** (default). Both searches return 50 candidates, merged with Reciprocal Rank Fusion. Its keyword side needs every word, like keyword mode, so it speaks up for codes and exact terms and stays silent on most full sentences. (Matching any word ranked worse in the eval: common words pushed right vector results down.) Fusion works like this: each chunk scores `1/(60 + rank)` per list it appears in, so chunks found by both rise to the top. Each hit includes `keyword_rank` and `vector_rank` to show why it ranked where it did.
 - **Filters in SQL.** Every query requires the caller's workspace, a source that is approved right now (an archived source vanishes from results immediately, before the worker removes its chunks), and, for vectors, the current `EMBEDDING_MODEL`. HNSW iterative scans (pgvector 0.8) keep a small workspace from getting too few results in a large shared table.
-- **Model down.** Hybrid search falls back to keyword results with `"degraded": true`; vector-only search returns `503 embedding_unavailable`.
+- **Model down.** Hybrid search falls back to keyword results with `"degraded": true`, matching chunks with *any* of the question's words, because without vectors requiring every word finds almost nothing for full sentences; vector-only search returns `503 embedding_unavailable`.
+
+## Retrieval evaluation
+
+`make eval` measures how well search finds the right knowledge. It runs on the demo data, so run `make seed-reset` first, with the worker and Ollama running.
+
+The questions live in `evals/retrieval/kettle-demo.yaml`: 44 cases, each a question plus the chunk headings that answer it. There are four kinds:
+- **exact**: error codes and fees
+- **paraphrase**: customer wording that shares few words with the answer
+- **ticket**: answered by a Q&A written from a resolved ticket
+- **unanswerable**: off-topic questions, questions answered only by another tenant, and questions answered only by pending or rejected knowledge
+
+For each mode (keyword, vector, hybrid) the eval reports:
+
+| Metric | Meaning |
+|---|---|
+| recall@1, @3, @5 | Share of answerable questions with a right chunk in the top 1, 3 or 5. Answer generation uses the top 5 |
+| MRR | Mean of 1/rank of the first right chunk: 1st scores 1, 2nd 0.5, not found 0 |
+| Cutoff | The cosine similarity that best separates answerable from unanswerable questions. Answer generation uses it to say "I don't know". It is based on vector similarity, because hybrid RRF scores depend only on rank and cannot be compared across questions |
+
+A second file, `kettle-demo-holdout.yaml` (34 cases, `make eval-holdout`), is for checking only. Settings and the cutoff are chosen on the first file, so its scores flatter them; the holdout shows whether a choice works on questions it was not chosen for.
+
+`make eval-baseline` saves a run as `evals/retrieval/kettle-demo.baseline.json`. Later runs show changes from that baseline, plus any question whose hybrid rank moved. To try other search settings without changing code:
+
+```bash
+python -m app.evals.retrieval --rrf-k 20 --candidates 30 --any-word-hybrid
+```
 
 ## Local
 
@@ -185,6 +211,20 @@ make worker     # ingestion and embeddings, in a second terminal
 - Readiness: `GET /ready`
 - Docs: `http://127.0.0.1:8000/docs`
 
+### Demo data
+
+`make seed` loads two fictional companies through the real service functions, then waits for the worker to embed their knowledge. `make seed-reset` deletes them and loads them again. Every demo user's password is `demo-password`.
+
+- **Kettle & Co** (`maya@kettle.test`, owner): sells point-of-sale systems to cafés.
+  - 6 users, one for each role.
+  - 22 tickets covering every status, with replies and internal notes.
+  - 6 published help articles.
+  - Ticket answers in each review state: approved, pending and rejected.
+  - A few tickets on purpose have no answer in the knowledge base.
+- **Harbor Books** (`rosa@harbor.test`, owner): a second tenant with its own 30-day returns policy. If "30 days" ever appears in a Kettle search, results have leaked across workspaces.
+
+The data lives in `app/seed/data.py`.
+
 `make lint` runs Ruff. `make test` runs pytest against Postgres with Redis disabled, so run `make db` first. Each run drops and recreates the database named in `TEST_DATABASE_URL` (default `desk_test` on the Docker Postgres), builds it with the Alembic migrations, and empties all tables before every test. The name must end in `_test`. A test fails if the models and migrations drift apart.
 
 ## Docker
@@ -195,4 +235,4 @@ Put a real `SECRET_KEY` (at least 32 characters) in `.env`, then:
 docker compose up --build
 ```
 
-The container runs `alembic upgrade head` before Uvicorn. Postgres credentials in `docker-compose.yml` are for local Docker only. Change them before any shared deployment.
+A one-off `migrate` service runs `alembic upgrade head` first; the API and worker start only after it succeeds. Postgres credentials in `docker-compose.yml` are for local Docker only. Change them before any shared deployment.

@@ -132,7 +132,7 @@ def folder(name: str, description: str, items: list[dict[str, Any]]) -> dict[str
     return {"name": name, "description": description, "item": items}
 
 
-def wait_for_ingestion(name: str, source_var: str) -> dict[str, Any]:
+def wait_for_ingestion(name: str, source_var: str, *, as_user: str = "owner") -> dict[str, Any]:
     """Poll the source's ingestion job until the worker finishes.
 
     Chunking and embedding run in the worker, not in the request, so search right after
@@ -165,6 +165,7 @@ def wait_for_ingestion(name: str, source_var: str) -> dict[str, Any]:
         name,
         "GET",
         f"{WS}/knowledge/{{{{{source_var}}}}}/ingestion",
+        as_user=as_user,
         pre=pre,
         tests=tests,
         description=wait_for_ingestion.__doc__ or "",

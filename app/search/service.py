@@ -17,6 +17,7 @@ Every query applies the same three filters, in SQL, never after the fact:
 """
 
 import logging
+import re
 import uuid
 from dataclasses import dataclass
 from enum import StrEnum
@@ -28,7 +29,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.embeddings.base import Embedder, EmbeddingError
 from app.models.ingestion import EMBEDDING_DIMENSIONS, SEARCH_CONFIG, KnowledgeChunk
 from app.models.knowledge import KnowledgeSource, KnowledgeStatus
-from app.search.fusion import reciprocal_rank_fusion
+from app.search.fusion import RRF_K, reciprocal_rank_fusion
 
 logger = logging.getLogger("app.search")
 
@@ -39,6 +40,31 @@ CANDIDATES = 50
 # finds the true nearest neighbours more often, at some speed cost. pgvector's
 # default is 40, below CANDIDATES, which would cap the result count.
 HNSW_EF_SEARCH = 100
+# Words used from a question for "any word" keyword matching (see _any_word). A cap
+# keeps one long question from building a huge OR query; 1000 characters is far more
+# than any real question needs, so the cap rarely matters.
+MAX_QUERY_WORDS = 32
+_WORD = re.compile(r"[\w-]+")
+
+
+@dataclass(frozen=True)
+class SearchTuning:
+    """The knobs of hybrid search, grouped so the retrieval eval (app/evals/) can try
+    other values without editing constants. The API always uses DEFAULT_TUNING;
+    change the defaults only when the eval shows a clear improvement."""
+
+    # Results each side contributes before fusion (see CANDIDATES).
+    candidates: int = CANDIDATES
+    # RRF damping constant (see fusion.py). Lower k favours each list's top ranks.
+    rrf_k: int = RRF_K
+    # Keyword side of fusion: any word (True) or every word, search-box syntax (False).
+    # Strict, because the retrieval eval found that any-word matches on common words
+    # ("take", "old") push right vector results down, and won nothing back at recall@5.
+    # Does not affect the keyword-only fallback, which always uses any word.
+    hybrid_any_word: bool = False
+
+
+DEFAULT_TUNING = SearchTuning()
 
 
 class SearchMode(StrEnum):
@@ -87,9 +113,10 @@ async def search(
     query: str,
     mode: SearchMode = SearchMode.hybrid,
     limit: int = 5,
+    tuning: SearchTuning = DEFAULT_TUNING,
 ) -> SearchResult:
     if mode is SearchMode.keyword:
-        rows = await _keyword(session, workspace_id, query, limit)
+        rows = await _keyword(session, workspace_id, query, limit, any_word=False)
         return SearchResult(mode, [_hit(row, keyword_rank=i) for i, row in _ranked(rows)])
 
     try:
@@ -99,7 +126,9 @@ async def search(
             raise VectorSearchUnavailable(str(exc)) from exc
         # Hybrid degrades instead of failing: keyword results beat an error page.
         logger.warning("vector search unavailable, using keywords only: %s", exc)
-        rows = await _keyword(session, workspace_id, query, limit)
+        # Always any word here. With no vectors to carry a full-sentence question, strict
+        # matching finds almost nothing (recall@5 about 0.2 against 0.88 in the eval).
+        rows = await _keyword(session, workspace_id, query, limit, any_word=True)
         hits = [_hit(row, keyword_rank=i) for i, row in _ranked(rows)]
         return SearchResult(mode, hits, degraded=True)
 
@@ -107,13 +136,19 @@ async def search(
         rows = await _vector(session, workspace_id, vector, embedder.model, limit)
         return SearchResult(mode, [_hit(row, vector_rank=i) for i, row in _ranked(rows)])
 
-    keyword_rows = await _keyword(session, workspace_id, query, CANDIDATES)
-    vector_rows = await _vector(session, workspace_id, vector, embedder.model, CANDIDATES)
+    vector_rows = await _vector(session, workspace_id, vector, embedder.model, tuning.candidates)
+    # No vectors at all (for example after a model change, before `make reembed`) leaves
+    # keywords on their own, like the fallback above, so match any word there too.
+    any_word = tuning.hybrid_any_word or not vector_rows
+    keyword_rows = await _keyword(
+        session, workspace_id, query, tuning.candidates, any_word=any_word
+    )
     by_id = {row.chunk_id: row for row in [*keyword_rows, *vector_rows]}
     keyword_ranks = {row.chunk_id: i for i, row in _ranked(keyword_rows)}
     vector_ranks = {row.chunk_id: i for i, row in _ranked(vector_rows)}
     fused = reciprocal_rank_fusion(
-        [[row.chunk_id for row in keyword_rows], [row.chunk_id for row in vector_rows]]
+        [[row.chunk_id for row in keyword_rows], [row.chunk_id for row in vector_rows]],
+        k=tuning.rrf_k,
     )
     hits = [
         _hit(
@@ -152,12 +187,24 @@ def _retrievable(workspace_id: uuid.UUID, score: object) -> Select:
 
 
 async def _keyword(
-    session: AsyncSession, workspace_id: uuid.UUID, query: str, limit: int
+    session: AsyncSession, workspace_id: uuid.UUID, query: str, limit: int, *, any_word: bool
 ) -> list[Row[Any]]:
-    # websearch_to_tsquery accepts what people type into search boxes: plain words
-    # (all must match), "quoted phrases", `or`, and -excluded words. Unlike
-    # to_tsquery it never raises a syntax error on odd input.
-    tsquery = func.websearch_to_tsquery(SEARCH_CONFIG, query)
+    """Full-text search, in one of two matching styles.
+
+    any_word=False (keyword mode, and hybrid's keyword side): websearch_to_tsquery, the
+    search-box syntax. Every word must match, and "quoted phrases", `or`, and -excluded
+    words work. Precise, for someone typing an error code or a few exact terms. In hybrid
+    it adds evidence only when it is strong, and stays silent on most full sentences,
+    leaving those to vectors.
+
+    any_word=True (hybrid when there are no vectors to use): a chunk matches if it has
+    any of the words. Questions are sentences: "refund to a new card" has three content
+    words, and requiring all three finds nothing whenever one ("new") is missing. The
+    ranking below puts chunks with more of the words, closer together, first. But
+    ts_rank_cd does not know that some words are rarer than others, so a common word
+    counts as much as a telling one; that noise is why fusion does not use it.
+    """
+    tsquery = _any_word(query) if any_word else func.websearch_to_tsquery(SEARCH_CONFIG, query)
     # ts_rank_cd rewards matches that are frequent, close together, and in the
     # heading (weight A). Normalization 32 maps the rank into 0..1 as rank/(rank+1).
     rank = func.ts_rank_cd(KnowledgeChunk.search_vector, tsquery, 32).label("score")
@@ -170,6 +217,23 @@ async def _keyword(
         .limit(limit)
     )
     return list((await session.execute(statement)).all())
+
+
+def _any_word(query: str) -> Any:
+    """A tsquery matching any word of the query: w1 | w2 | ...
+
+    Built as plainto_tsquery(word1) || plainto_tsquery(word2) || ..., where || on two
+    tsqueries means OR. Each word goes to Postgres as a bound parameter, so no input can
+    break the query syntax, and plainto_tsquery stems each word with the same 'english'
+    config as the indexed column ("refunded" -> refund) and drops stop words ("to",
+    "a"). A word that is only a stop word becomes an empty query, which || ignores.
+    """
+    words = list(dict.fromkeys(word.lower() for word in _WORD.findall(query)))
+    words = words[:MAX_QUERY_WORDS] or [query]
+    tsquery = func.plainto_tsquery(SEARCH_CONFIG, words[0])
+    for word in words[1:]:
+        tsquery = tsquery.op("||")(func.plainto_tsquery(SEARCH_CONFIG, word))
+    return tsquery
 
 
 async def _vector(

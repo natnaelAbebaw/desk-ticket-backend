@@ -1,4 +1,4 @@
-.PHONY: install db ollama dev worker reembed test lint migrate
+.PHONY: install db ollama dev worker reembed seed seed-reset eval eval-baseline eval-holdout test lint migrate
 
 install:
 	python -m pip install -e ".[dev]"
@@ -20,6 +20,24 @@ worker:
 # Re-queue sources whose chunks lack a vector from the current EMBEDDING_MODEL.
 reembed:
 	python -m app.embeddings.backfill
+
+# Fictional demo workspaces (Kettle & Co, Harbor Books) with tickets and knowledge.
+seed:
+	python -m app.seed --wait
+
+seed-reset:
+	python -m app.seed --reset --wait
+
+# Retrieval quality on the demo data (needs make seed-reset, the worker, and Ollama).
+eval:
+	python -m app.evals.retrieval
+
+eval-baseline:
+	python -m app.evals.retrieval --save-baseline
+
+# Questions that search settings are never tuned on (see the file's header).
+eval-holdout:
+	python -m app.evals.retrieval --dataset evals/retrieval/kettle-demo-holdout.yaml
 
 test:
 	pytest

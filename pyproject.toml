@@ -20,6 +20,8 @@ dependencies = [
     "pgvector>=0.3",
     # Calls the embedding model's HTTP API (Ollama).
     "httpx>=0.27",
+    # Reads the eval question sets (evals/*.yaml).
+    "pyyaml>=6",
 ]
 
 [project.optional-dependencies]
